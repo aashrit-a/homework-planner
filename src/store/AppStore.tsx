@@ -13,7 +13,12 @@ type Action =
   | { type: 'course/delete'; id: string; deleteAssignments: boolean }
   | { type: 'settings/update'; patch: Partial<Settings> }
   | { type: 'plan/set'; day: string; ids: string[] }
-  | { type: 'data/replace'; data: AppData };
+  /**
+   * `remote` applies data that came from sync as-is. `user` is an import or
+   * "start fresh": anything not in the new data is recorded as deleted so other
+   * devices drop it too, and everything kept counts as just edited.
+   */
+  | { type: 'data/replace'; data: AppData; origin: 'remote' | 'user' };
 
 const nowIso = () => new Date().toISOString();
 
@@ -28,6 +33,13 @@ function removeFromPlans(plan: AppData['studyPlan'], ids: Set<string>): AppData[
     const filtered = list.filter((id) => !ids.has(id));
     if (filtered.length) next[day] = filtered;
   }
+  return next;
+}
+
+function withDeleted(state: AppData, ids: Iterable<string>): AppData['deleted'] {
+  const at = nowIso();
+  const next = { ...state.deleted };
+  for (const id of ids) next[id] = at;
   return next;
 }
 
@@ -49,39 +61,65 @@ function reducer(state: AppData, action: Action): AppData {
         ...state,
         assignments: state.assignments.filter((a) => a.id !== action.id),
         studyPlan: removeFromPlans(state.studyPlan, new Set([action.id])),
+        planUpdatedAt: nowIso(),
+        deleted: withDeleted(state, [action.id]),
       };
     case 'assignment/restore': {
       const plan = { ...state.studyPlan };
       for (const day of action.planDays) plan[day] = [...(plan[day] ?? []), action.assignment.id];
-      return { ...state, assignments: [...state.assignments, action.assignment], studyPlan: plan };
+      const deleted = { ...state.deleted };
+      delete deleted[action.assignment.id];
+      // Count the undo as an edit so it outranks the deletion on other devices.
+      const assignment = { ...action.assignment, updatedAt: nowIso() };
+      return { ...state, assignments: [...state.assignments, assignment], studyPlan: plan, planUpdatedAt: nowIso(), deleted };
     }
     case 'course/add':
       return { ...state, courses: [...state.courses, action.course] };
     case 'course/update':
-      return { ...state, courses: state.courses.map((c) => (c.id === action.id ? { ...c, ...action.patch } : c)) };
+      return {
+        ...state,
+        courses: state.courses.map((c) => (c.id === action.id ? { ...c, ...action.patch, updatedAt: nowIso() } : c)),
+      };
     case 'course/delete': {
       const removed = new Set(
         action.deleteAssignments ? state.assignments.filter((a) => a.courseId === action.id).map((a) => a.id) : [],
       );
+      const ts = nowIso();
       return {
         ...state,
         courses: state.courses.filter((c) => c.id !== action.id),
         assignments: state.assignments
           .filter((a) => !removed.has(a.id))
-          .map((a) => (a.courseId === action.id ? { ...a, courseId: null } : a)),
+          .map((a) => (a.courseId === action.id ? { ...a, courseId: null, updatedAt: ts } : a)),
         studyPlan: removed.size ? removeFromPlans(state.studyPlan, removed) : state.studyPlan,
+        planUpdatedAt: removed.size ? ts : state.planUpdatedAt,
+        deleted: withDeleted(state, [action.id, ...removed]),
       };
     }
     case 'settings/update':
-      return { ...state, settings: { ...state.settings, ...action.patch } };
+      return { ...state, settings: { ...state.settings, ...action.patch }, settingsUpdatedAt: nowIso() };
     case 'plan/set': {
       const plan = { ...state.studyPlan };
       if (action.ids.length) plan[action.day] = [...new Set(action.ids)];
       else delete plan[action.day];
-      return { ...state, studyPlan: plan };
+      return { ...state, studyPlan: plan, planUpdatedAt: nowIso() };
     }
-    case 'data/replace':
-      return action.data;
+    case 'data/replace': {
+      if (action.origin === 'remote') return action.data;
+      const ts = nowIso();
+      const kept = new Set([...action.data.courses, ...action.data.assignments].map((x) => x.id));
+      const removed = [...state.courses, ...state.assignments].map((x) => x.id).filter((id) => !kept.has(id));
+      const deleted = { ...action.data.deleted, ...withDeleted(state, removed) };
+      for (const id of kept) delete deleted[id];
+      return {
+        ...action.data,
+        courses: action.data.courses.map((c) => ({ ...c, updatedAt: ts })),
+        assignments: action.data.assignments.map((a) => ({ ...a, updatedAt: ts })),
+        settingsUpdatedAt: ts,
+        planUpdatedAt: ts,
+        deleted,
+      };
+    }
   }
 }
 
@@ -96,7 +134,10 @@ export interface AppActions {
   deleteCourse(id: string, deleteAssignments: boolean): void;
   updateSettings(patch: Partial<Settings>): void;
   setPlan(day: string, ids: string[]): void;
+  /** Replace everything (import, start fresh). Removed items are recorded as deleted. */
   replaceData(data: AppData): void;
+  /** Apply data received from sync exactly as given. */
+  applyRemoteData(data: AppData): void;
 }
 
 interface StoreValue {
@@ -140,7 +181,7 @@ export function AppStoreProvider({
     if (!adapter.subscribe) return;
     return adapter.subscribe((incoming) => {
       skipSave.current = true;
-      dispatch({ type: 'data/replace', data: incoming });
+      dispatch({ type: 'data/replace', data: incoming, origin: 'remote' });
     });
   }, [adapter]);
 
@@ -186,7 +227,8 @@ export function AppStoreProvider({
         });
       },
       addCourse(input) {
-        const course: Course = { ...input, id: uid('c_'), createdAt: nowIso() };
+        const ts = nowIso();
+        const course: Course = { ...input, id: uid('c_'), createdAt: ts, updatedAt: ts };
         dispatch({ type: 'course/add', course });
         return course;
       },
@@ -203,7 +245,10 @@ export function AppStoreProvider({
         dispatch({ type: 'plan/set', day, ids });
       },
       replaceData(next) {
-        dispatch({ type: 'data/replace', data: next });
+        dispatch({ type: 'data/replace', data: next, origin: 'user' });
+      },
+      applyRemoteData(next) {
+        dispatch({ type: 'data/replace', data: next, origin: 'remote' });
       },
     }),
     [],

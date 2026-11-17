@@ -1,8 +1,10 @@
 import { useRef, useState } from 'react';
-import { Copy, Download, Monitor, Moon, Sun, Trash2, Upload } from 'lucide-react';
+import { Copy, Download, LogIn, LogOut, Monitor, Moon, RefreshCw, RotateCcw, Sun, Trash2, Upload } from 'lucide-react';
 import { useStore } from '../store/AppStore';
+import { useAccount } from '../store/AccountContext';
+import { href } from '../lib/router';
 import { useUI } from '../store/UIContext';
-import { createEmptyData, exportData, parseBackupText, readImportFile, serializeBackup } from '../lib/storage';
+import { createEmptyData, exportData, normalizeData, parseBackupText, readImportFile, serializeBackup } from '../lib/storage';
 import { Modal } from '../components/Modal';
 import type { AppData } from '../types';
 import { PageHeader, Segmented, Kbd } from '../components/ui';
@@ -14,6 +16,7 @@ const HOSTED = import.meta.env.VITE_HOSTED === '1';
 export function Settings() {
   const { data, actions } = useStore();
   const { askConfirm, toast } = useUI();
+  const account = useAccount();
   const fileRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState(data.settings.userName);
   const [exportOpen, setExportOpen] = useState(false);
@@ -65,6 +68,8 @@ export function Settings() {
   return (
     <div className="page page-narrow">
       <PageHeader title="Settings" />
+
+      <AccountSection />
 
       <section className="card settings-section">
         <h2 className="settings-title">Profile</h2>
@@ -172,7 +177,9 @@ export function Settings() {
             onClick={() =>
               askConfirm({
                 title: 'Delete all data?',
-                message: 'All assignments, classes and study plans will be permanently deleted. This cannot be undone.',
+                message: account.email
+                  ? 'All assignments, classes and study plans will be permanently deleted from your account and every device you’re signed in on. This cannot be undone.'
+                  : 'All assignments, classes and study plans will be permanently deleted. This cannot be undone.',
                 confirmLabel: 'Delete everything',
                 danger: true,
                 onConfirm: () => {
@@ -267,5 +274,120 @@ export function Settings() {
         </div>
       </Modal>
     </div>
+  );
+}
+
+function formatWhen(iso: string | null): string {
+  if (!iso) return 'not yet';
+  const d = new Date(iso);
+  const mins = Math.round((Date.now() - d.getTime()) / 60_000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} min ago`;
+  return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
+function AccountSection() {
+  const { available, email, status, lastSyncedAt, error, signOut, syncNow, backup } = useAccount();
+  const { data, actions } = useStore();
+  const { askConfirm, toast } = useUI();
+  if (!available) return null;
+
+  const missingFromBackup = backup
+    ? backup.data.assignments.filter((a) => !data.assignments.some((x) => x.id === a.id)).length +
+      backup.data.courses.filter((c) => !data.courses.some((x) => x.id === c.id)).length
+    : 0;
+
+  const restoreBackup = () => {
+    if (!backup) return;
+    // Add back anything from the backup that's missing now; nothing current is removed or changed.
+    const ts = new Date().toISOString();
+    const courses = backup.data.courses.filter((c) => !data.courses.some((x) => x.id === c.id)).map((c) => ({ ...c, updatedAt: ts }));
+    const assignments = backup.data.assignments
+      .filter((a) => !data.assignments.some((x) => x.id === a.id))
+      .map((a) => ({ ...a, updatedAt: ts }));
+    const deleted = { ...data.deleted };
+    for (const x of [...courses, ...assignments]) delete deleted[x.id];
+    const next = normalizeData({ ...data, courses: [...data.courses, ...courses], assignments: [...data.assignments, ...assignments], deleted });
+    if (!next) return;
+    actions.applyRemoteData(next);
+    toast(`Restored ${missingFromBackup} item${missingFromBackup === 1 ? '' : 's'} from the backup`, { tone: 'success' });
+  };
+
+  return (
+    <section className="card settings-section">
+      <h2 className="settings-title">Account</h2>
+      {email ? (
+        <>
+          <div className="setting">
+            <div className="setting-text">
+              <div className="setting-label">{email}</div>
+              <div className={`setting-desc${status === 'error' ? ' text-danger' : ''}`}>
+                {status === 'syncing'
+                  ? 'Syncing…'
+                  : status === 'offline'
+                    ? 'Offline. Changes are saved on this device and will sync when you’re back online.'
+                    : status === 'error'
+                      ? error ?? 'Sync problem.'
+                      : `Synced ${formatWhen(lastSyncedAt)}`}
+              </div>
+            </div>
+            <div className="setting-actions">
+              <button type="button" className="btn btn-secondary" onClick={() => void syncNow()} disabled={status === 'syncing'}>
+                <RefreshCw size={15} className={status === 'syncing' ? 'spin' : ''} /> Sync now
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() =>
+                  askConfirm({
+                    title: 'Sign out?',
+                    message: 'Your planner stays in your account. By default it also stays on this device so you can keep using it here.',
+                    checkboxLabel: 'Also remove the planner from this device (for shared computers)',
+                    confirmLabel: 'Sign out',
+                    onConfirm: async (removeFromDevice) => {
+                      await signOut(removeFromDevice);
+                      toast(removeFromDevice ? 'Signed out and removed from this device' : 'Signed out');
+                    },
+                  })
+                }
+              >
+                <LogOut size={15} /> Sign out
+              </button>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="setting">
+          <div className="setting-text">
+            <div className="setting-label">Sync across devices</div>
+            <div className="setting-desc">
+              {error ?? 'Sign in to use the same planner on your phone and computer. What’s on this device is kept and added to your account.'}
+            </div>
+          </div>
+          <div className="setting-actions">
+            <a className="btn btn-primary" href={href('/signin')}>
+              <LogIn size={15} /> Sign in
+            </a>
+            <a className="btn btn-secondary" href={href('/signin?mode=signup')}>
+              Create account
+            </a>
+          </div>
+        </div>
+      )}
+      {backup && (
+        <div className="setting">
+          <div className="setting-text">
+            <div className="setting-label">Backup from before you signed in</div>
+            <div className="setting-desc">
+              Saved {formatWhen(backup.savedAt)} · {backup.data.assignments.length} assignments, {backup.data.courses.length} classes.{' '}
+              {missingFromBackup ? `${missingFromBackup} of them aren’t in your planner now.` : 'Everything in it is in your planner.'}
+            </div>
+          </div>
+          <button type="button" className="btn btn-secondary" onClick={restoreBackup} disabled={!missingFromBackup}>
+            <RotateCcw size={15} /> Restore missing
+          </button>
+        </div>
+      )}
+    </section>
   );
 }

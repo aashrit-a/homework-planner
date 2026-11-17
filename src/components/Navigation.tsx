@@ -4,6 +4,7 @@ import {
   CalendarDays,
   CalendarRange,
   GraduationCap,
+  LogIn,
   LayoutDashboard,
   ListTodo,
   Menu as MenuIcon,
@@ -16,6 +17,7 @@ import {
 } from 'lucide-react';
 import { href } from '../lib/router';
 import { useResolvedTheme } from '../lib/theme';
+import { useAccount, type SyncStatus } from '../store/AccountContext';
 import { useStore } from '../store/AppStore';
 import { useUI } from '../store/UIContext';
 
@@ -76,10 +78,7 @@ export function Sidebar({ path }: { path: string }) {
       </nav>
 
       <div className="sidebar-footer">
-        <div className="sidebar-user">
-          <span className="avatar">{(data.settings.userName || 'S').slice(0, 1).toUpperCase()}</span>
-          <span className="truncate">{data.settings.userName || 'Student'}</span>
-        </div>
+        <AccountBadge name={data.settings.userName} />
         <button
           type="button"
           className="icon-btn"
@@ -136,5 +135,41 @@ export function MobileNav({ path }: { path: string }) {
         </>
       )}
     </>
+  );
+}
+
+const SYNC_LABEL: Record<SyncStatus, string> = {
+  signed_out: 'Not signed in',
+  synced: 'Synced',
+  syncing: 'Syncing…',
+  offline: 'Offline · will sync later',
+  error: 'Sync problem',
+};
+
+/** Who's signed in and whether the planner is synced; links to sign-in or settings. */
+function AccountBadge({ name }: { name: string }) {
+  const { available, email, status } = useAccount();
+  if (available && !email) {
+    return (
+      <a href={href('/signin')} className="sidebar-user sidebar-signin">
+        <span className="avatar avatar-muted">
+          <LogIn size={13} />
+        </span>
+        <span className="truncate">Sign in to sync</span>
+      </a>
+    );
+  }
+  const label = name.trim() || email || 'Student';
+  return (
+    <a href={href('/settings')} className="sidebar-user" title={email ? `${email} · ${SYNC_LABEL[status]}` : undefined}>
+      <span className="avatar">
+        {label.slice(0, 1).toUpperCase()}
+        {email && <span className={`sync-dot sync-${status}`} aria-label={SYNC_LABEL[status]} />}
+      </span>
+      <span className="sidebar-user-text">
+        <span className="truncate">{label}</span>
+        {email && <span className="sidebar-user-sub truncate">{SYNC_LABEL[status]}</span>}
+      </span>
+    </a>
   );
 }

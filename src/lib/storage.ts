@@ -43,8 +43,31 @@ export function removeDemoData(data: AppData): AppData {
   return { ...data, assignments, courses, studyPlan, settings };
 }
 
+/** Timestamp for data that predates change tracking: any real edit is newer. */
+export const EPOCH = '1970-01-01T00:00:00.000Z';
+const TOMBSTONE_TTL_MS = 180 * 86_400_000;
+
 export function createEmptyData(settings: Settings = DEFAULT_SETTINGS): AppData {
-  return { version: 1, courses: [], assignments: [], settings: { ...settings }, studyPlan: {} };
+  return {
+    version: 1,
+    courses: [],
+    assignments: [],
+    settings: { ...settings },
+    studyPlan: {},
+    settingsUpdatedAt: EPOCH,
+    planUpdatedAt: EPOCH,
+    deleted: {},
+  };
+}
+
+function normalizeDeleted(raw: unknown): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!raw || typeof raw !== 'object') return out;
+  const cutoff = Date.now() - TOMBSTONE_TTL_MS;
+  for (const [id, at] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof at === 'string' && !Number.isNaN(Date.parse(at)) && Date.parse(at) > cutoff) out[id] = at;
+  }
+  return out;
 }
 
 export class LocalStorageAdapter implements PersistenceAdapter {
@@ -122,7 +145,8 @@ function normalizeCourse(raw: any, i: number): Course | null {
     code: str(raw.code),
     color: /^#[0-9a-f]{6}$/i.test(raw.color) ? raw.color : CLASS_COLORS[i % CLASS_COLORS.length],
     teacher: str(raw.teacher),
-    createdAt: str(raw.createdAt) || new Date().toISOString(),
+    createdAt: str(raw.createdAt) || EPOCH,
+    updatedAt: str(raw.updatedAt) || str(raw.createdAt) || EPOCH,
   };
 }
 
@@ -198,7 +222,16 @@ export function normalizeData(raw: any): AppData | null {
     }
   }
 
-  return { version: 1, courses, assignments, settings, studyPlan };
+  return {
+    version: 1,
+    courses,
+    assignments,
+    settings,
+    studyPlan,
+    settingsUpdatedAt: str(raw.settingsUpdatedAt) || EPOCH,
+    planUpdatedAt: str(raw.planUpdatedAt) || EPOCH,
+    deleted: normalizeDeleted(raw.deleted),
+  };
 }
 
 export function serializeBackup(data: AppData): string {

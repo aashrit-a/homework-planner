@@ -1,21 +1,25 @@
 # Margin — Homework Tracker & Academic Planner
 
-A fast, minimal planner for college coursework: assignments, a weekly planner, a calendar, classes and a study planner. Data is saved automatically in the browser.
+A fast, minimal planner for college coursework: assignments, tests, a weekly planner, a calendar, classes and a study planner. Data is saved in the browser first, and syncs between devices when you sign in.
 
 ## Run it
 
 ```bash
 npm install
-npm run dev        # http://localhost:5173
-npm run build      # production build in dist/ (static, deploy anywhere)
-npm run preview    # serve the production build
+npm run dev        # app only, http://localhost:5173 (sign-in shows "can't reach the server")
+npm run dev:full   # app + API with a local database, http://localhost:8787
+npm run build      # type-checks the app and the Worker, builds dist/
 ```
 
-### Deploy to GitHub Pages
+## Deploy (Cloudflare)
 
-`.github/workflows/deploy-pages.yml` builds the app and publishes `dist/` on every push to `main` (or run it by hand from the Actions tab). One-time setup: in the repository go to **Settings → Pages** and set **Source** to **GitHub Actions**. The site is then served at `https://<owner>.github.io/<repo>/`.
+The site is a Cloudflare Worker (`wrangler.jsonc`) that serves the built app from `dist/` and runs the API in `worker/index.ts` for `/api/*`. With the project connected to this repository in Cloudflare (Workers Builds: build command `npm run build`, deploy command `npx wrangler deploy`), every push to `main` deploys.
 
-The build is fully static and uses hash routing, so `dist/` can be hosted on Netlify, Vercel, GitHub Pages or opened from any static server with no extra configuration.
+The D1 database that stores accounts is declared without an id, so wrangler creates it (named `homework-planner`) on the first deploy and reuses it afterwards. Its tables are created automatically on the first API request. To pin it explicitly, copy the database id from the Cloudflare dashboard into `wrangler.jsonc` as `database_id`.
+
+`.github/workflows/deploy-pages.yml` can also publish `dist/` to GitHub Pages; a static host has no API, so sign-in there says accounts aren't available.
+
+`npm run build:artifact` produces a single-file copy (`dist-artifact/margin.html`) for hosting without a server; accounts are hidden there.
 
 ## Features
 
@@ -26,6 +30,7 @@ The build is fully static and uses hash routing, so `dist/` can be hosted on Net
 - **Calendar**: month and week views (the week view is a time grid with a "now" line). Assignments are color-coded by class. Click an assignment to edit it, click a day to see its list, use `+` (or double-click) to add on that date.
 - **Classes**: add, edit and delete classes with a name, short code, teacher and color (12 presets plus a custom picker). Each class has its own page listing its assignments.
 - **Study Planner**: a suggested order ranked by deadline, priority, type and effort. Build a daily plan by hand (drag, ↑/↓, remove) or use Auto-fill up to your daily goal.
+- **Accounts and sync**: sign in or create an account (`#signin`) to use the same planner on several devices. See below.
 - **Settings**: name, light/dark/system theme, daily study goal, JSON export and import (validated), clear all.
 
 The planner starts empty. Older versions created a demo semester on first launch; the first time an existing browser loads this version, those demo classes and assignments are removed once (anything you added yourself is kept).
@@ -62,6 +67,8 @@ src/
   types.ts               Data model (Course, Assignment, Settings, StudyPlan, AppData)
   lib/
     storage.ts           PersistenceAdapter interface + LocalStorageAdapter, validation/normalization, import/export
+    merge.ts             Merging two copies of the planner (sync), fingerprints
+    api.ts               Client for the Worker API
     tests.ts             Upcoming/past tests, countdowns and study-checklist progress
     planning.ts          Overdue/urgency logic, due-date buckets, study ranking algorithm
     quickAdd.ts          Natural-language quick-add parser
@@ -71,24 +78,48 @@ src/
   store/
     AppStore.tsx         useReducer store + typed actions, debounced auto-save, cross-tab sync
     UIContext.tsx        Editor modal, toasts, confirm dialogs
+    AccountContext.tsx   Sign-in state and the sync engine
   components/            AssignmentRow, AssignmentEditor, QuickAdd, Menu, Modal, Checkbox, Navigation, ui primitives
   pages/                 Dashboard, Assignments, WeeklyPlanner, CalendarPage, Classes (+ detail), StudyPlanner, Settings
   styles/                Design tokens (light/dark), components, page layouts — plain CSS, no framework
+worker/
+  index.ts               Cloudflare Worker: accounts, sessions and planner storage (D1)
 ```
 
 The only runtime dependencies are **React** and **lucide-react** (icons).
 
-### Adding a backend later
+## Accounts and sync
 
-All persistence goes through the `PersistenceAdapter` interface in `src/lib/storage.ts`:
+**Your data is never replaced, only merged.**
 
-```ts
-interface PersistenceAdapter {
-  load(): AppData | null;
-  save(data: AppData): void;
-  clear(): void;
-  subscribe?(onChange: (data: AppData) => void): () => void;
-}
-```
+- The planner always lives on the device first and works offline. Signing in adds a copy in your account.
+- The first time a device signs in, what's on it is saved as a backup (Settings → Account → *Backup from before you signed in*, with *Restore missing*), then merged with the account. Nothing on either side is dropped.
+- After that, edits upload about 2 seconds after you make them. Changes from other devices arrive when you return to the tab, when you come back online, every minute while the tab is open, or with *Sync now*.
+- If two devices changed things at the same time, the server notices (revision check) and the copies are merged:
+  - the newer edit of each item wins;
+  - deletions are remembered (for 180 days) so they don't come back;
+  - settings and the study plan come from whichever device changed them last.
+- Signing out keeps the planner on the device unless you tick *Also remove the planner from this device*.
 
-To move to a server, write an `ApiAdapter` (for example, one that loads after sign-in, saves through a REST or Supabase client, and uses `subscribe` for realtime updates) and pass it to `<AppStoreProvider adapter={...}>`. Every mutation already goes through the typed actions in `AppStore.tsx`, so you can also switch to per-entity API calls there without touching any UI code. IDs are client-generated strings, and every record carries `createdAt`/`updatedAt`, ready for syncing.
+**Security**
+
+- Passwords are hashed with PBKDF2-SHA256 (100,000 iterations, per-user salt).
+- Sessions are random tokens in an `HttpOnly`, `Secure`, `SameSite=Lax` cookie that lasts 60 days; only a SHA-256 hash of each token is stored.
+- Writes must come from the same site, as JSON.
+- After 10 wrong passwords, an account is locked for 15 minutes.
+
+**Limitations**
+
+- There's no password reset (there's no email service), so keep an exported backup.
+- Sync is whole-planner (one JSON document per account, up to about 1.5 MB, which is thousands of assignments).
+
+### API
+
+| | |
+| --- | --- |
+| `POST /api/signup` `{ email, password }` | create account, start session |
+| `POST /api/login` `{ email, password }` | start session |
+| `POST /api/logout` | end session |
+| `GET /api/session` | `{ email }` or 401 |
+| `GET /api/data` | `{ revision, data }` |
+| `PUT /api/data` `{ data, baseRevision }` | save; 409 with the current copy if another device saved first |

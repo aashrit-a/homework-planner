@@ -1,9 +1,24 @@
-// Cloudflare deployment: serve the static Vite build from dist/.
-// Hash-based routing means every page loads from index.html, so no server code is needed.
+// Cloudflare deployment.
+// - The app is the static Vite build in dist/ (Workers Assets).
+// - /api/* runs worker/index.ts: accounts and planner sync, stored in D1.
+// The D1 database has no id here on purpose: wrangler creates it on the first
+// deploy and reuses it afterwards (you can also add its id once created).
 {
   "name": "homework-planner",
+  "main": "worker/index.ts",
   "compatibility_date": "2025-06-01",
   "assets": {
-    "directory": "./dist"
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "homework-planner"
+    }
+  ],
+  "observability": {
+    "enabled": true
   }
 }

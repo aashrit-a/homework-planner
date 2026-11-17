@@ -16,6 +16,8 @@ import { ClassDetail, Classes } from './pages/Classes';
 import { StudyPlanner } from './pages/StudyPlanner';
 import { Settings } from './pages/Settings';
 import { Tests } from './pages/Tests';
+import { SignIn } from './pages/SignIn';
+import { AccountProvider } from './store/AccountContext';
 import { EmptyState } from './components/ui';
 import { href } from './lib/router';
 
@@ -28,6 +30,7 @@ const TITLES: Record<string, string> = {
   '/classes': 'Classes',
   '/study': 'Study Planner',
   '/settings': 'Settings',
+  '/signin': 'Sign in',
 };
 
 function Shell() {
@@ -80,6 +83,14 @@ function Shell() {
   }, [openEditor, editor, confirm]);
 
   const [first, second] = route.segments;
+  if (first === 'signin') {
+    return (
+      <>
+        <SignIn initialMode={route.query.get('mode') === 'signup' ? 'signup' : 'login'} />
+        <Toasts />
+      </>
+    );
+  }
   let page: React.ReactNode;
   switch (first) {
     case undefined:
@@ -134,7 +145,9 @@ export function App() {
   return (
     <AppStoreProvider>
       <UIProvider>
-        <Shell />
+        <AccountProvider>
+          <Shell />
+        </AccountProvider>
       </UIProvider>
     </AppStoreProvider>
   );

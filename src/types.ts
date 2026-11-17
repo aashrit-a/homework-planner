@@ -11,6 +11,7 @@ export interface Course {
   color: string;
   teacher: string;
   createdAt: string;
+  updatedAt: string;
 }
 
 /** One item on a test's study checklist. */
@@ -58,8 +59,16 @@ export interface AppData {
   assignments: Assignment[];
   settings: Settings;
   studyPlan: StudyPlan;
+  /** When settings / the study plan last changed; used to pick the newer copy when syncing. */
+  settingsUpdatedAt: string;
+  planUpdatedAt: string;
+  /**
+   * Ids of deleted classes and assignments with the time they were deleted, so a
+   * sync merge never brings them back. Entries are pruned after 180 days.
+   */
+  deleted: Record<string, string>;
 }
 
 export type AssignmentInput = Omit<Assignment, 'id' | 'createdAt' | 'updatedAt' | 'completedAt' | 'location' | 'topics'> &
   Partial<Pick<Assignment, 'location' | 'topics'>>;
-export type CourseInput = Omit<Course, 'id' | 'createdAt'>;
+export type CourseInput = Omit<Course, 'id' | 'createdAt' | 'updatedAt'>;

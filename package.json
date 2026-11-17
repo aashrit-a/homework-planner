@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && tsc -p worker && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit",
-    "build:artifact": "tsc --noEmit && vite build -c vite.artifact.config.ts && node scripts/build-artifact.mjs"
+    "typecheck": "tsc --noEmit && tsc -p worker",
+    "build:artifact": "tsc --noEmit && vite build -c vite.artifact.config.ts && node scripts/build-artifact.mjs",
+    "dev:full": "vite build && npx wrangler@4 dev"
   },
   "dependencies": {
     "lucide-react": "^0.460.0",

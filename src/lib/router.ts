@@ -22,6 +22,7 @@ const PATH_TO_NAME: Record<string, string> = {
   '/classes': 'classes',
   '/study': 'study',
   '/settings': 'preferences',
+  '/signin': 'signin',
 };
 const NAME_TO_PATH: Record<string, string> = Object.fromEntries(Object.entries(PATH_TO_NAME).map(([p, n]) => [n, p]));
 
