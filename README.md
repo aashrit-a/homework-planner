@@ -11,6 +11,10 @@ npm run build      # production build in dist/ (static, deploy anywhere)
 npm run preview    # serve the production build
 ```
 
+### Deploy to GitHub Pages
+
+`.github/workflows/deploy-pages.yml` builds the app and publishes `dist/` on every push to `main` (or run it by hand from the Actions tab). One-time setup: in the repository go to **Settings → Pages** and set **Source** to **GitHub Actions**. The site is then served at `https://<owner>.github.io/<repo>/`.
+
 The build is fully static and uses hash routing, so `dist/` can be hosted on Netlify, Vercel, GitHub Pages or opened from any static server with no extra configuration.
 
 ## Features
