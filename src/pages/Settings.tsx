@@ -1,11 +1,10 @@
 import { useRef, useState } from 'react';
-import { Copy, Download, Monitor, Moon, RotateCcw, Sun, Trash2, Upload } from 'lucide-react';
+import { Copy, Download, Monitor, Moon, Sun, Trash2, Upload } from 'lucide-react';
 import { useStore } from '../store/AppStore';
 import { useUI } from '../store/UIContext';
-import { exportData, parseBackupText, readImportFile, serializeBackup } from '../lib/storage';
+import { createEmptyData, exportData, parseBackupText, readImportFile, serializeBackup } from '../lib/storage';
 import { Modal } from '../components/Modal';
 import type { AppData } from '../types';
-import { createEmptyData, createSampleData } from '../lib/sampleData';
 import { PageHeader, Segmented, Kbd } from '../components/ui';
 import type { ThemePreference } from '../types';
 
@@ -164,31 +163,6 @@ export function Settings() {
         </div>
         <div className="setting">
           <div className="setting-text">
-            <div className="setting-label">Load sample data</div>
-            <div className="setting-desc">Replace everything with the demo semester.</div>
-          </div>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() =>
-              askConfirm({
-                title: 'Load sample data?',
-                message: 'Your current assignments and classes will be replaced with demo data.',
-                confirmLabel: 'Load sample data',
-                danger: true,
-                onConfirm: () => {
-                  const sample = createSampleData();
-                  actions.replaceData({ ...sample, settings: { ...sample.settings, userName: data.settings.userName || sample.settings.userName, theme: data.settings.theme } });
-                  toast('Sample data loaded');
-                },
-              })
-            }
-          >
-            <RotateCcw size={15} /> Reset
-          </button>
-        </div>
-        <div className="setting">
-          <div className="setting-text">
             <div className="setting-label">Start fresh</div>
             <div className="setting-desc">Delete all assignments, classes and plans. Settings are kept.</div>
           </div>
@@ -202,8 +176,7 @@ export function Settings() {
                 confirmLabel: 'Delete everything',
                 danger: true,
                 onConfirm: () => {
-                  const empty = createEmptyData(data.settings.userName);
-                  actions.replaceData({ ...empty, settings: data.settings });
+                  actions.replaceData(createEmptyData(data.settings));
                   toast('All data cleared');
                 },
               })
@@ -221,7 +194,7 @@ export function Settings() {
           <li><span>Search assignments</span><Kbd>/</Kbd></li>
           <li><span>Save in assignment form</span><span><Kbd>⌘/Ctrl</Kbd> <Kbd>Enter</Kbd></span></li>
           <li><span>Save & add another</span><span><Kbd>⇧</Kbd> <Kbd>⌘/Ctrl</Kbd> <Kbd>Enter</Kbd></span></li>
-          <li><span>Go to Dashboard / Assignments / Week / Calendar</span><span><Kbd>G</Kbd> then <Kbd>D</Kbd> <Kbd>A</Kbd> <Kbd>W</Kbd> <Kbd>C</Kbd></span></li>
+          <li><span>Go to Dashboard / Assignments / Tests / Week / Calendar</span><span><Kbd>G</Kbd> then <Kbd>D</Kbd> <Kbd>A</Kbd> <Kbd>T</Kbd> <Kbd>W</Kbd> <Kbd>C</Kbd></span></li>
           <li><span>Quick add syntax</span><code className="code">Essay draft #engl fri 5pm !high ~2h</code></li>
         </ul>
       </section>

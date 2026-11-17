@@ -19,13 +19,16 @@ The build is fully static and uses hash routing, so `dist/` can be hosted on Net
 
 ## Features
 
-- **Dashboard**: greeting, a one-line summary of the workload, four stat cards (each links to a filtered list), today's tasks with overdue items first, upcoming deadlines for the next 7 days, a weekly progress ring and a workload-per-day chart.
+- **Dashboard**: greeting, a one-line summary of the workload, a "Get started" checklist for new users, the next few tests with a countdown, four stat cards (each links to a filtered list), today's tasks with overdue items first, upcoming deadlines for the next 7 days, a weekly progress ring and a workload-per-day chart.
+- **Upcoming Tests**: every test and quiz with a countdown, location and a study checklist of topics to tick off as you review. The next test gets a featured card with a "Study today" button that adds it to today's study plan. Past tests are kept in their own tab.
 - **Assignments**: quick-add bar, a full editor with "Save & add another", search, filters (class, status, priority, type), sorting (due, priority, class, recently added), grouping by due date, changing priority and status from the row, and delete with undo.
 - **Weekly Planner**: Monday–Sunday board with week navigation and today highlighted. Each day shows its count, and a workload chart flags the busiest day. Drag a card to another day to reschedule it. Click a day for details, or add straight to a day.
 - **Calendar**: month and week views (the week view is a time grid with a "now" line). Assignments are color-coded by class. Click an assignment to edit it, click a day to see its list, use `+` (or double-click) to add on that date.
 - **Classes**: add, edit and delete classes with a name, short code, teacher and color (12 presets plus a custom picker). Each class has its own page listing its assignments.
 - **Study Planner**: a suggested order ranked by deadline, priority, type and effort. Build a daily plan by hand (drag, ↑/↓, remove) or use Auto-fill up to your daily goal.
-- **Settings**: name, light/dark/system theme, daily study goal, JSON export and import (validated), load sample data, clear all.
+- **Settings**: name, light/dark/system theme, daily study goal, JSON export and import (validated), clear all.
+
+The planner starts empty. Older versions created a demo semester on first launch; the first time an existing browser loads this version, those demo classes and assignments are removed once (anything you added yourself is kept).
 
 ### Quick-add syntax
 
@@ -43,7 +46,7 @@ The type is inferred from words like *quiz*, *exam*, *essay*, *reading*, *projec
 
 ### Keyboard
 
-`N` new assignment · `/` search · `G` then `D`/`A`/`W`/`C`/`K`/`S` to switch pages · `⌘/Ctrl+Enter` save · `⇧⌘/Ctrl+Enter` save and add another · `Esc` close.
+`N` new assignment · `/` search · `G` then `D`/`A`/`T`/`W`/`C`/`K`/`S` to switch pages · `⌘/Ctrl+Enter` save · `⇧⌘/Ctrl+Enter` save and add another · `Esc` close.
 
 ## Architecture
 
@@ -52,7 +55,7 @@ src/
   types.ts               Data model (Course, Assignment, Settings, StudyPlan, AppData)
   lib/
     storage.ts           PersistenceAdapter interface + LocalStorageAdapter, validation/normalization, import/export
-    sampleData.ts        Demo semester generated relative to today
+    tests.ts             Upcoming/past tests, countdowns and study-checklist progress
     planning.ts          Overdue/urgency logic, due-date buckets, study ranking algorithm
     quickAdd.ts          Natural-language quick-add parser
     date.ts              Local-date helpers (dates stored as YYYY-MM-DD, never shifted by time zones)

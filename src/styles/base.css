@@ -236,6 +236,9 @@ ol {
 .text-warning {
   color: var(--warning);
 }
+.text-success {
+  color: var(--success);
+}
 .text-accent {
   color: var(--accent);
 }

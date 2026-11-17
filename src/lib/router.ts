@@ -16,6 +16,7 @@ export interface Route {
 const PATH_TO_NAME: Record<string, string> = {
   '/': 'dashboard',
   '/assignments': 'assignments',
+  '/tests': 'tests',
   '/planner': 'planner',
   '/calendar': 'calendar',
   '/classes': 'classes',

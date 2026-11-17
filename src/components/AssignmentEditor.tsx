@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Trash2 } from 'lucide-react';
-import type { AssignmentInput, AssignmentType, Priority, Status } from '../types';
+import type { AssignmentInput, AssignmentType, Priority, Status, StudyTopic } from '../types';
+import { TopicChecklist } from './TopicChecklist';
+import { isTestType } from '../lib/tests';
 import { Modal } from './Modal';
 import { PriorityFlag, Segmented, Kbd } from './ui';
 import { useStore } from '../store/AppStore';
@@ -22,6 +24,8 @@ type FormState = {
   priority: Priority;
   type: AssignmentType;
   status: Status;
+  location: string;
+  topics: StudyTopic[];
 };
 
 function initialState(input: Partial<AssignmentInput> | undefined, lastCourseId: string): FormState {
@@ -38,6 +42,8 @@ function initialState(input: Partial<AssignmentInput> | undefined, lastCourseId:
     priority: input?.priority ?? 'medium',
     type: input?.type ?? 'homework',
     status: input?.status ?? 'not_started',
+    location: input?.location ?? '',
+    topics: input?.topics ?? [],
   };
 }
 
@@ -118,6 +124,8 @@ export function AssignmentEditor() {
       priority: form.priority,
       type: form.type,
       status: form.status,
+      location: form.location.trim(),
+      topics: form.topics,
     };
     lastCourse.current = courseId ?? '';
 
@@ -130,7 +138,7 @@ export function AssignmentEditor() {
     actions.addAssignment(input);
     if (addAnother) {
       setAddedCount((n) => n + 1);
-      setForm((f) => ({ ...f, title: '', notes: '', courseId: courseId ?? '', status: 'not_started' }));
+      setForm((f) => ({ ...f, title: '', notes: '', courseId: courseId ?? '', status: 'not_started', location: '', topics: [] }));
       setNewClassName('');
       setError('');
       requestAnimationFrame(() => titleRef.current?.focus());
@@ -152,13 +160,15 @@ export function AssignmentEditor() {
     closeEditor();
   };
 
+  const isTestForm = isTestType(form.type);
+  const noun = form.type === 'quiz' ? 'quiz' : form.type === 'test' ? 'test' : 'assignment';
   const estOptions = ESTIMATE_PRESETS.map((m) => ({ value: String(m), label: formatMinutes(m) }));
 
   return (
     <Modal
       open={!!editor}
       onClose={close}
-      title={editing ? 'Edit assignment' : 'New assignment'}
+      title={editing ? `Edit ${noun}` : `New ${noun}`}
       size="lg"
       footer={
         <>
@@ -194,7 +204,7 @@ export function AssignmentEditor() {
               </button>
             )}
             <button type="button" className="btn btn-primary" onClick={() => submit(false)}>
-              {editing ? 'Save changes' : 'Add assignment'}
+              {editing ? 'Save changes' : `Add ${noun}`}
             </button>
           </div>
         </>
@@ -212,13 +222,13 @@ export function AssignmentEditor() {
           ref={titleRef}
           data-autofocus
           className="editor-title"
-          placeholder="Assignment title"
+          placeholder={isTestForm ? (form.type === 'quiz' ? 'Quiz name, e.g. Quiz 4: Chapter 6' : 'Test name, e.g. Midterm 2') : 'Assignment title'}
           value={form.title}
           onChange={(e) => {
             set('title', e.target.value);
             if (error) setError('');
           }}
-          aria-label="Assignment title"
+          aria-label={isTestForm ? 'Test name' : 'Assignment title'}
           maxLength={200}
         />
         {error && <div className="form-error">{error}</div>}
@@ -261,7 +271,7 @@ export function AssignmentEditor() {
           )}
 
           <div className="field field-span">
-            <span className="field-label">Due date</span>
+            <span className="field-label">{isTestForm ? `${noun === 'quiz' ? 'Quiz' : 'Test'} date` : 'Due date'}</span>
             <div className="date-row">
               <input
                 type="date"
@@ -294,7 +304,7 @@ export function AssignmentEditor() {
 
           <label className="field">
             <span className="field-label">
-              Due time <span className="optional">optional</span>
+              {isTestForm ? 'Start time' : 'Due time'} <span className="optional">optional</span>
             </span>
             <div className="input-with-clear">
               <input type="time" className="input" value={form.dueTime} onChange={(e) => set('dueTime', e.target.value)} />
@@ -306,7 +316,7 @@ export function AssignmentEditor() {
             </div>
           </label>
           <label className="field">
-            <span className="field-label">Estimated time</span>
+            <span className="field-label">{isTestForm ? 'Study time needed' : 'Estimated time'}</span>
             <div className="estimate-row">
               <select className="input" value={form.estimate} onChange={(e) => set('estimate', e.target.value)}>
                 <option value="">Not set</option>
@@ -357,6 +367,30 @@ export function AssignmentEditor() {
               options={STATUSES.map((s) => ({ value: s.value, label: s.value === 'not_started' ? 'To do' : s.value === 'in_progress' ? 'Doing' : 'Done', title: s.label }))}
             />
           </div>
+
+          {isTestForm && (
+            <>
+              <label className="field field-span">
+                <span className="field-label">
+                  Location <span className="optional">optional</span>
+                </span>
+                <input
+                  id="test-location"
+                  className="input"
+                  placeholder="e.g. Room 204, Science Hall, or Online"
+                  value={form.location}
+                  onChange={(e) => set('location', e.target.value)}
+                  maxLength={120}
+                />
+              </label>
+              <div className="field field-span">
+                <span className="field-label">
+                  What to study <span className="optional">tick topics off as you review them</span>
+                </span>
+                <TopicChecklist inputId="test-topic-input" topics={form.topics} onChange={(topics) => set('topics', topics)} />
+              </div>
+            </>
+          )}
 
           <label className="field field-span">
             <span className="field-label">Notes</span>

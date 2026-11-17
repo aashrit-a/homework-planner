@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, GraduationCap, Plus } from 'lucide-react';
+import { isTest } from '../lib/tests';
 import type { Assignment } from '../types';
 import { useCourses, useStore } from '../store/AppStore';
 import { useUI } from '../store/UIContext';
@@ -134,7 +135,7 @@ function Chip({ a, now }: { a: Assignment; now: Date }) {
   return (
     <button
       type="button"
-      className={`cal-chip${isDone(a) ? ' done' : ''}${isOverdue(a, now) ? ' overdue' : ''}`}
+      className={`cal-chip${isDone(a) ? ' done' : ''}${isOverdue(a, now) ? ' overdue' : ''}${isTest(a) ? ' test' : ''}`}
       style={{ '--c': c?.color ?? NO_CLASS_COLOR } as React.CSSProperties}
       onClick={(e) => {
         e.stopPropagation();
@@ -142,6 +143,7 @@ function Chip({ a, now }: { a: Assignment; now: Date }) {
       }}
       title={`${a.title}${c ? ` · ${c.name}` : ''}${a.dueTime ? ` · ${formatTime(a.dueTime)}` : ''}`}
     >
+      {isTest(a) && <GraduationCap size={11} className="cal-chip-icon" aria-label={a.type} />}
       {a.dueTime && <span className="cal-chip-time">{formatTime(a.dueTime).replace(' ', '').toLowerCase()}</span>}
       <span className="cal-chip-title">{a.title}</span>
     </button>

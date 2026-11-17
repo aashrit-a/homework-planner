@@ -1183,7 +1183,8 @@ input[type='time'].input {
   letter-spacing: -0.02em;
 }
 .ring-pct.small {
-  font-size: 12px;
+  font-size: 11px;
+  letter-spacing: -0.03em;
 }
 .bar {
   height: 6px;

@@ -41,9 +41,16 @@ function useDeleteCourse() {
   };
 }
 
-export function Classes() {
+export function Classes({ openNew = false }: { openNew?: boolean }) {
   const { data } = useStore();
   const editor = useCourseEditor();
+  // `#classes--new-1` opens the "New class" form straight away (used by the dashboard's getting-started steps).
+  useEffect(() => {
+    if (openNew) {
+      editor.openNew();
+      navigate('/classes');
+    }
+  }, [openNew]); // eslint-disable-line react-hooks/exhaustive-deps
   const deleteCourse = useDeleteCourse();
   const now = useNow();
 

@@ -1,4 +1,4 @@
-import type { AppData, Assignment, AssignmentType, Course, Priority, Settings, Status, StudyPlan } from '../types';
+import type { AppData, Assignment, AssignmentType, Course, Priority, Settings, Status, StudyPlan, StudyTopic } from '../types';
 import { isValidKey, isValidTime } from './date';
 import { CLASS_COLORS } from './constants';
 import { uid } from './id';
@@ -17,6 +17,35 @@ export interface PersistenceAdapter {
 }
 
 export const STORAGE_KEY = 'margin:data:v1';
+const DEMO_REMOVED_KEY = 'margin:demo-removed';
+
+/** Ids used by the demo semester that earlier versions created on first launch. */
+const DEMO_COURSE_IDS = new Set(['c_cs201', 'c_math221', 'c_psyc101', 'c_engl205', 'c_econ102']);
+const isDemoAssignmentId = (id: string) => /^a_seed\d+$/.test(id);
+
+/**
+ * Removes the old demo classes and assignments. Demo classes that the user's
+ * own assignments still use are kept. Returns the same object if nothing changed.
+ */
+export function removeDemoData(data: AppData): AppData {
+  const assignments = data.assignments.filter((a) => !isDemoAssignmentId(a.id));
+  const usedCourses = new Set(assignments.map((a) => a.courseId));
+  const courses = data.courses.filter((c) => !DEMO_COURSE_IDS.has(c.id) || usedCourses.has(c.id));
+  if (assignments.length === data.assignments.length && courses.length === data.courses.length) return data;
+  const kept = new Set(assignments.map((a) => a.id));
+  const studyPlan: StudyPlan = {};
+  for (const [day, ids] of Object.entries(data.studyPlan)) {
+    const list = ids.filter((id) => kept.has(id));
+    if (list.length) studyPlan[day] = list;
+  }
+  // The demo also set the name "Alex".
+  const settings = data.settings.userName === 'Alex' ? { ...data.settings, userName: '' } : data.settings;
+  return { ...data, assignments, courses, studyPlan, settings };
+}
+
+export function createEmptyData(settings: Settings = DEFAULT_SETTINGS): AppData {
+  return { version: 1, courses: [], assignments: [], settings: { ...settings }, studyPlan: {} };
+}
 
 export class LocalStorageAdapter implements PersistenceAdapter {
   constructor(private key = STORAGE_KEY) {}
@@ -25,7 +54,15 @@ export class LocalStorageAdapter implements PersistenceAdapter {
     try {
       const raw = localStorage.getItem(this.key);
       if (!raw) return null;
-      return normalizeData(JSON.parse(raw));
+      const data = normalizeData(JSON.parse(raw));
+      if (data && !localStorage.getItem(DEMO_REMOVED_KEY)) {
+        // Earlier versions seeded a demo semester; clear it out once, keeping anything the user added.
+        const cleaned = removeDemoData(data);
+        localStorage.setItem(DEMO_REMOVED_KEY, '1');
+        if (cleaned !== data) this.save(cleaned);
+        return cleaned;
+      }
+      return data;
     } catch {
       return null;
     }
@@ -89,6 +126,15 @@ function normalizeCourse(raw: any, i: number): Course | null {
   };
 }
 
+function normalizeTopics(raw: unknown): StudyTopic[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((t): t is Record<string, unknown> => !!t && typeof t === 'object' && typeof (t as any).text === 'string')
+    .map((t) => ({ id: str(t.id) || uid('t_'), text: (t.text as string).trim().slice(0, 200), done: t.done === true }))
+    .filter((t) => t.text)
+    .slice(0, 100);
+}
+
 function normalizeAssignment(raw: any, courseIds: Set<string>): Assignment | null {
   if (!raw || typeof raw !== 'object') return null;
   const title = str(raw.title).trim();
@@ -107,6 +153,8 @@ function normalizeAssignment(raw: any, courseIds: Set<string>): Assignment | nul
     priority: PRIORITY_SET.has(raw.priority) ? raw.priority : 'medium',
     type: TYPE_SET.has(raw.type) ? raw.type : 'homework',
     status,
+    location: str(raw.location).slice(0, 120),
+    topics: normalizeTopics(raw.topics),
     completedAt: status === 'completed' ? str(raw.completedAt) || now : null,
     createdAt: str(raw.createdAt) || now,
     updatedAt: str(raw.updatedAt) || now,

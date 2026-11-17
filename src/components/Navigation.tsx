@@ -3,6 +3,7 @@ import {
   BookOpen,
   CalendarDays,
   CalendarRange,
+  GraduationCap,
   LayoutDashboard,
   ListTodo,
   Menu as MenuIcon,
@@ -23,6 +24,7 @@ import { ClassDot, Kbd } from './ui';
 export const NAV = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/assignments', label: 'My Assignments', short: 'Tasks', icon: ListTodo },
+  { path: '/tests', label: 'Upcoming Tests', short: 'Tests', icon: GraduationCap },
   { path: '/planner', label: 'Weekly Planner', short: 'Week', icon: CalendarRange },
   { path: '/calendar', label: 'Calendar', icon: CalendarDays },
   { path: '/classes', label: 'My Classes', short: 'Classes', icon: BookOpen },
@@ -119,7 +121,7 @@ export function Sidebar({ path }: { path: string }) {
   );
 }
 
-const MOBILE_PRIMARY = ['/', '/assignments', '/planner', '/calendar'];
+const MOBILE_PRIMARY = ['/', '/assignments', '/tests', '/planner'];
 
 export function MobileNav({ path }: { path: string }) {
   const [moreOpen, setMoreOpen] = useState(false);

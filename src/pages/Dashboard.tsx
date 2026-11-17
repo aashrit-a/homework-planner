@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import type { Assignment } from '../types';
-import { AlertTriangle, CalendarClock, CheckCircle2, ChevronRight, Coffee, Plus, Sun } from 'lucide-react';
+import { AlertTriangle, BookOpen, CalendarClock, Check, CheckCircle2, ChevronRight, Coffee, GraduationCap, ListTodo, MapPin, Plus, Sun, UserRound } from 'lucide-react';
+import { countdown, isTest, prepProgress, upcomingTests } from '../lib/tests';
+import { NO_CLASS_COLOR } from '../lib/constants';
 import { useStore, useCourses } from '../store/AppStore';
 import { useUI } from '../store/UIContext';
 import { useNow } from '../lib/hooks';
@@ -46,6 +48,8 @@ export function Dashboard() {
   }, [data.assignments, now, today]);
 
   const name = data.settings.userName.trim();
+  const isEmpty = data.assignments.length === 0 && data.courses.length === 0;
+  const showGettingStarted = data.courses.length === 0 || data.assignments.length === 0;
   const weekPct = view.weekAll.length ? view.weekDone.length / view.weekAll.length : 0;
   const todayMinutes = sumMinutes(view.dueTodayOpen);
 
@@ -81,6 +85,10 @@ export function Dashboard() {
 
       <QuickAdd />
 
+      {showGettingStarted && <GettingStarted />}
+
+      {!isEmpty && (
+      <>
       <div className="stats">
         <StatCard label="Due today" value={view.dueTodayOpen.length} hint={todayMinutes ? `~${formatMinutes(todayMinutes)} of work` : 'All clear'} icon={<Sun size={16} />} onClick={() => navigate('/assignments?view=today')} />
         <StatCard label="Due this week" value={view.weekOpen.length} hint={`${view.weekAll.length} total this week`} icon={<CalendarClock size={16} />} onClick={() => navigate('/planner')} />
@@ -161,6 +169,7 @@ export function Dashboard() {
         </div>
 
         <aside className="dash-side">
+          <UpcomingTestsCard now={now} />
           <Card title="This week">
             <div className="progress-head">
               <ProgressRing value={weekPct} size={76} stroke={7}>
@@ -208,6 +217,8 @@ export function Dashboard() {
           <ClassesSnapshot />
         </aside>
       </div>
+      </>
+      )}
     </div>
   );
 }
@@ -326,6 +337,136 @@ function ClassesSnapshot() {
           </li>
         ))}
       </ul>
+    </Card>
+  );
+}
+
+function GettingStarted() {
+  const { data } = useStore();
+  const { openEditor } = useUI();
+  const steps = [
+    {
+      done: data.courses.length > 0,
+      icon: <BookOpen size={16} />,
+      title: 'Add your classes',
+      desc: 'Give each class a color so its work is easy to spot.',
+      action: () => navigate('/classes?new=1'),
+      label: 'Add a class',
+    },
+    {
+      done: data.assignments.some(isTest),
+      icon: <GraduationCap size={16} />,
+      title: 'Add upcoming tests',
+      desc: 'Get a countdown and a checklist of what to study.',
+      action: () => openEditor({ defaults: { type: 'test', priority: 'high' } }),
+      label: 'Add a test',
+    },
+    {
+      done: data.assignments.some((a) => !isTest(a)),
+      icon: <ListTodo size={16} />,
+      title: 'Add assignments',
+      desc: 'Homework, essays, readings and projects with due dates.',
+      action: () => openEditor(),
+      label: 'Add an assignment',
+    },
+    {
+      done: data.settings.userName.trim().length > 0,
+      icon: <UserRound size={16} />,
+      title: 'Add your name',
+      desc: 'Used for the greeting at the top of this page.',
+      action: () => navigate('/settings'),
+      label: 'Open settings',
+    },
+  ];
+  const doneCount = steps.filter((s) => s.done).length;
+  return (
+    <section className="card getting-started">
+      <div className="card-header">
+        <h2 className="card-title">Get started</h2>
+        <span className="muted small tabular">
+          {doneCount} of {steps.length} done
+        </span>
+      </div>
+      <ol className="gs-steps">
+        {steps.map((s) => (
+          <li key={s.title} className={`gs-step${s.done ? ' done' : ''}`}>
+            <span className="gs-icon">{s.done ? <Check size={16} strokeWidth={2.5} /> : s.icon}</span>
+            <div className="gs-text">
+              <div className="gs-title">{s.title}</div>
+              <div className="muted small">{s.desc}</div>
+            </div>
+            {!s.done && (
+              <button type="button" className="btn btn-secondary btn-sm" onClick={s.action}>
+                {s.label}
+              </button>
+            )}
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+function UpcomingTestsCard({ now }: { now: Date }) {
+  const { data } = useStore();
+  const { getCourse } = useCourses();
+  const { openEditor } = useUI();
+  const tests = useMemo(() => upcomingTests(data.assignments, now), [data.assignments, now]);
+  const shown = tests.slice(0, 3);
+  return (
+    <Card
+      title={
+        <>
+          Upcoming tests {tests.length > 0 && <span className="card-count">{tests.length}</span>}
+        </>
+      }
+      action={
+        <a className="link-btn" href={href('/tests')}>
+          All tests <ChevronRight size={14} />
+        </a>
+      }
+    >
+      {shown.length === 0 ? (
+        <div className="dash-tests-empty">
+          <span className="muted small">No tests coming up.</span>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => openEditor({ defaults: { type: 'test', priority: 'high' } })}>
+            <Plus size={14} /> Add test
+          </button>
+        </div>
+      ) : (
+        <ul className="dash-tests">
+          {shown.map((a) => {
+            const cd = countdown(a, now);
+            const prep = prepProgress(a);
+            const c = getCourse(a.courseId);
+            return (
+              <li key={a.id}>
+                <button type="button" className="dash-test" style={{ '--c': c?.color ?? NO_CLASS_COLOR } as React.CSSProperties} onClick={() => navigate('/tests')}>
+                  <span className={`dash-test-count countdown-${cd.tone}`}>
+                    <strong>{cd.value === 'Today' ? 'Today' : cd.value}</strong>
+                    {cd.value !== 'Today' && <span>{cd.unit}</span>}
+                  </span>
+                  <span className="dash-test-info">
+                    <span className="dash-test-title">{a.title}</span>
+                    <span className="muted small dash-test-meta">
+                      <span className="class-dot" /> {c ? c.code || c.name : 'No class'}
+                      {a.location && (
+                        <>
+                          {' · '}
+                          <MapPin size={11} /> {a.location}
+                        </>
+                      )}
+                    </span>
+                  </span>
+                  <span className="muted small tabular dash-test-prep" title="Study topics reviewed">
+                    {prep.total ? `${Math.round(prep.pct * 100)}%` : ''}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </Card>
   );
 }

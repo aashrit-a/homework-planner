@@ -15,12 +15,14 @@ import { CalendarPage } from './pages/CalendarPage';
 import { ClassDetail, Classes } from './pages/Classes';
 import { StudyPlanner } from './pages/StudyPlanner';
 import { Settings } from './pages/Settings';
+import { Tests } from './pages/Tests';
 import { EmptyState } from './components/ui';
 import { href } from './lib/router';
 
 const TITLES: Record<string, string> = {
   '/': 'Dashboard',
   '/assignments': 'Assignments',
+  '/tests': 'Upcoming Tests',
   '/planner': 'Weekly Planner',
   '/calendar': 'Calendar',
   '/classes': 'Classes',
@@ -53,7 +55,7 @@ function Shell() {
       if (e.metaKey || e.ctrlKey || e.altKey || editor || confirm || isTypingTarget(e.target)) return;
       const k = e.key.toLowerCase();
       if (gPressed && Date.now() - gPressed < 1000) {
-        const map: Record<string, string> = { d: '/', a: '/assignments', w: '/planner', c: '/calendar', k: '/classes', s: '/study', p: '/study', ',': '/settings' };
+        const map: Record<string, string> = { d: '/', a: '/assignments', t: '/tests', w: '/planner', c: '/calendar', k: '/classes', s: '/study', p: '/study', ',': '/settings' };
         gPressed = 0;
         if (map[k]) {
           e.preventDefault();
@@ -86,6 +88,9 @@ function Shell() {
     case 'assignments':
       page = <Assignments route={route} />;
       break;
+    case 'tests':
+      page = <Tests />;
+      break;
     case 'planner':
       page = <WeeklyPlanner route={route} />;
       break;
@@ -93,7 +98,7 @@ function Shell() {
       page = <CalendarPage />;
       break;
     case 'classes':
-      page = second ? <ClassDetail id={second} /> : <Classes />;
+      page = second ? <ClassDetail id={second} /> : <Classes openNew={route.query.get('new') === '1'} />;
       break;
     case 'study':
       page = <StudyPlanner />;

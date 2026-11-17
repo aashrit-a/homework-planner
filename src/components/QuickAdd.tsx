@@ -6,11 +6,15 @@ import { parseQuickAdd } from '../lib/quickAdd';
 import { formatDue, formatMinutes } from '../lib/date';
 import { ClassTag, PriorityFlag } from './ui';
 import { TYPE_LABEL } from '../lib/constants';
+import type { AssignmentType, Priority } from '../types';
 
 interface Props {
   /** Override the default date (e.g. when adding from a specific day). */
   defaultDate?: string;
   defaultCourseId?: string;
+  /** Used when the text doesn't name a type (e.g. the Tests page defaults to "test"). */
+  defaultType?: AssignmentType;
+  defaultPriority?: Priority;
   placeholder?: string;
   autoFocus?: boolean;
 }
@@ -19,7 +23,7 @@ interface Props {
  * One-line assignment entry. Understands `#class`, `!high`, `~90m`, and dates
  * like `tomorrow`, `fri`, `next mon`, `11/24`, plus times like `5pm`.
  */
-export function QuickAdd({ defaultDate, defaultCourseId, placeholder, autoFocus }: Props) {
+export function QuickAdd({ defaultDate, defaultCourseId, defaultType, defaultPriority, placeholder, autoFocus }: Props) {
   const { data, actions } = useStore();
   const { toast, openEditor } = useUI();
   const [value, setValue] = useState('');
@@ -30,8 +34,10 @@ export function QuickAdd({ defaultDate, defaultCourseId, placeholder, autoFocus 
     const p = parseQuickAdd(value, data.courses);
     if (!p.matched.date && defaultDate) p.dueDate = defaultDate;
     if (!p.courseId && defaultCourseId) p.courseId = defaultCourseId;
+    if (!p.type && defaultType) p.type = defaultType;
+    if (!p.priority && defaultPriority) p.priority = defaultPriority;
     return p;
-  }, [value, data.courses, defaultDate, defaultCourseId]);
+  }, [value, data.courses, defaultDate, defaultCourseId, defaultType, defaultPriority]);
 
   const course = parsed.courseId ? data.courses.find((c) => c.id === parsed.courseId) ?? null : null;
 
@@ -48,7 +54,8 @@ export function QuickAdd({ defaultDate, defaultCourseId, placeholder, autoFocus 
       type: parsed.type ?? 'homework',
       status: 'not_started',
     });
-    toast(`Added “${parsed.title}” · due ${formatDue(parsed.dueDate, parsed.dueTime).toLowerCase()}`, { tone: 'success' });
+    const when = formatDue(parsed.dueDate, parsed.dueTime).toLowerCase();
+    toast(`Added “${parsed.title}” · ${parsed.type === 'test' || parsed.type === 'quiz' ? when : `due ${when}`}`, { tone: 'success' });
     setValue('');
   };
 

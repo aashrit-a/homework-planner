@@ -13,6 +13,13 @@ export interface Course {
   createdAt: string;
 }
 
+/** One item on a test's study checklist. */
+export interface StudyTopic {
+  id: string;
+  text: string;
+  done: boolean;
+}
+
 export interface Assignment {
   id: string;
   title: string;
@@ -26,6 +33,10 @@ export interface Assignment {
   priority: Priority;
   type: AssignmentType;
   status: Status;
+  /** Where a test or quiz takes place (room, building, online). */
+  location: string;
+  /** Study checklist, used mainly for tests and quizzes. */
+  topics: StudyTopic[];
   completedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -49,5 +60,6 @@ export interface AppData {
   studyPlan: StudyPlan;
 }
 
-export type AssignmentInput = Omit<Assignment, 'id' | 'createdAt' | 'updatedAt' | 'completedAt'>;
+export type AssignmentInput = Omit<Assignment, 'id' | 'createdAt' | 'updatedAt' | 'completedAt' | 'location' | 'topics'> &
+  Partial<Pick<Assignment, 'location' | 'topics'>>;
 export type CourseInput = Omit<Course, 'id' | 'createdAt'>;

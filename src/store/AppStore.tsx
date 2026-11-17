@@ -1,7 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, type ReactNode } from 'react';
 import type { AppData, Assignment, AssignmentInput, Course, CourseInput, Settings, Status } from '../types';
-import { LocalStorageAdapter, type PersistenceAdapter } from '../lib/storage';
-import { createSampleData } from '../lib/sampleData';
+import { createEmptyData, LocalStorageAdapter, type PersistenceAdapter } from '../lib/storage';
 import { uid } from '../lib/id';
 
 type Action =
@@ -114,7 +113,7 @@ export function AppStoreProvider({
   children: ReactNode;
   adapter?: PersistenceAdapter;
 }) {
-  const [data, dispatch] = useReducer(reducer, undefined, () => adapter.load() ?? createSampleData());
+  const [data, dispatch] = useReducer(reducer, undefined, () => adapter.load() ?? createEmptyData());
   const dataRef = useRef(data);
   dataRef.current = data;
   const skipSave = useRef(false);
@@ -150,6 +149,8 @@ export function AppStoreProvider({
       addAssignment(input) {
         const ts = nowIso();
         const assignment: Assignment = {
+          location: '',
+          topics: [],
           ...input,
           id: uid('a_'),
           completedAt: input.status === 'completed' ? ts : null,

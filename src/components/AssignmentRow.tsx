@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState } from 'react';
-import { CircleCheck, CircleDashed, Circle, Clock, MoreHorizontal, Pencil, StickyNote, Trash2, CalendarPlus, CalendarDays } from 'lucide-react';
+import { CircleCheck, CircleDashed, Circle, Clock, ListChecks, MapPin, MoreHorizontal, Pencil, StickyNote, Trash2, CalendarPlus, CalendarDays } from 'lucide-react';
 import type { Assignment, Course } from '../types';
 import { Checkbox } from './Checkbox';
 import { ClassTag, PriorityFlag } from './ui';
@@ -76,6 +76,16 @@ function AssignmentRowImpl({ assignment: a, course, now, showDate = true, showCl
               <Clock size={12} /> {formatMinutes(a.estimatedMinutes)}
             </span>
           ) : null}
+          {a.location && (
+            <span className="row-meta-item">
+              <MapPin size={12} /> {a.location}
+            </span>
+          )}
+          {a.topics.length > 0 && (
+            <span className="row-meta-item" title="Study topics reviewed">
+              <ListChecks size={12} /> {a.topics.filter((t) => t.done).length}/{a.topics.length}
+            </span>
+          )}
           {a.notes && (
             <span className="row-meta-item" title={a.notes}>
               <StickyNote size={12} />

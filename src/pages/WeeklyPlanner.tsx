@@ -6,7 +6,8 @@ import { useUI } from '../store/UIContext';
 import { useAssignmentActions, useNow } from '../lib/hooks';
 import { addDays, formatLongDate, formatMinutes, formatRange, formatTime, fromKey, isValidKey, startOfWeek, toKey, weekDays, weekdayShort } from '../lib/date';
 import { compareByDue, isDone, isOverdue, sumMinutes } from '../lib/planning';
-import { NO_CLASS_COLOR } from '../lib/constants';
+import { NO_CLASS_COLOR, TYPE_LABEL } from '../lib/constants';
+import { isTest } from '../lib/tests';
 import type { Route } from '../lib/router';
 import { Checkbox } from '../components/Checkbox';
 import { AssignmentRow } from '../components/AssignmentRow';
@@ -242,6 +243,7 @@ function PlannerCard({ a, course, now }: { a: Assignment; course: Course | null;
         <span className="pcard-title">{a.title}</span>
       </div>
       <div className="pcard-meta">
+        {isTest(a) && <span className="test-badge">{TYPE_LABEL[a.type]}</span>}
         <span className="pcard-class">{course ? course.code || course.name : 'No class'}</span>
         {a.dueTime && (
           <span className="pcard-time">
