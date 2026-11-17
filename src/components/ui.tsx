@@ -172,3 +172,16 @@ export function Card({
 export function Kbd({ children }: { children: ReactNode }) {
   return <kbd className="kbd">{children}</kbd>;
 }
+
+/** A titled block of content with no box around it. */
+export function Section({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
+  return (
+    <section className="section">
+      <div className="section-head">
+        <h2 className="section-title">{title}</h2>
+        {action && <div className="section-action">{action}</div>}
+      </div>
+      {children}
+    </section>
+  );
+}

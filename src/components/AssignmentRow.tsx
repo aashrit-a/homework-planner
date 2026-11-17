@@ -1,14 +1,13 @@
 import { memo, useEffect, useRef, useState } from 'react';
-import { CircleCheck, CircleDashed, Circle, Clock, ListChecks, MapPin, MoreHorizontal, Pencil, StickyNote, Trash2, CalendarPlus, CalendarDays } from 'lucide-react';
+import { CalendarDays, CalendarPlus, Circle, CircleCheck, CircleDashed, Flag, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import type { Assignment, Course } from '../types';
 import { Checkbox } from './Checkbox';
-import { ClassTag, PriorityFlag } from './ui';
 import { Menu } from './Menu';
 import { useUI } from '../store/UIContext';
 import { useAssignmentActions } from '../lib/hooks';
-import { formatDue, formatMinutes, formatTime, addDaysKey, todayKey } from '../lib/date';
-import { isOverdue, isUrgent } from '../lib/planning';
-import { PRIORITIES, TYPE_LABEL } from '../lib/constants';
+import { addDaysKey, formatDue, formatTime, todayKey } from '../lib/date';
+import { isOverdue } from '../lib/planning';
+import { NO_CLASS_COLOR } from '../lib/constants';
 
 interface Props {
   assignment: Assignment;
@@ -16,12 +15,15 @@ interface Props {
   now: Date;
   showDate?: boolean;
   showClass?: boolean;
-  /** Show only time instead of full due date (e.g. inside a "Today" group). */
+  /** Show only the time instead of the full due date (e.g. inside a "Today" list). */
   timeOnly?: boolean;
-  extra?: React.ReactNode;
 }
 
-function AssignmentRowImpl({ assignment: a, course, now, showDate = true, showClass = true, timeOnly, extra }: Props) {
+/**
+ * One assignment: checkbox, title, class and due date. Priority is only
+ * shown when high; everything else lives in the ⋯ menu or the editor.
+ */
+function AssignmentRowImpl({ assignment: a, course, now, showDate = true, showClass = true, timeOnly }: Props) {
   const { openEditor } = useUI();
   const { toggleComplete, remove, setPriority, setStatus, reschedule } = useAssignmentActions();
   const [completing, setCompleting] = useState(false);
@@ -30,7 +32,7 @@ function AssignmentRowImpl({ assignment: a, course, now, showDate = true, showCl
 
   const done = a.status === 'completed';
   const overdue = isOverdue(a, now);
-  const urgent = !overdue && isUrgent(a, now);
+  const isTestLike = a.type === 'test' || a.type === 'quiz';
 
   const onToggle = () => {
     if (done) {
@@ -45,11 +47,11 @@ function AssignmentRowImpl({ assignment: a, course, now, showDate = true, showCl
     }, 420);
   };
 
-  const dueLabel = timeOnly ? (a.dueTime ? formatTime(a.dueTime) : 'Any time') : formatDue(a.dueDate, a.dueTime);
+  const dueLabel = timeOnly ? (a.dueTime ? formatTime(a.dueTime) : '') : formatDue(a.dueDate, a.dueTime);
 
   return (
     <div
-      className={`row${done ? ' row-done' : ''}${completing ? ' row-completing' : ''}${overdue ? ' row-overdue' : ''}`}
+      className={`row${done ? ' row-done' : ''}${completing ? ' row-completing' : ''}`}
       onClick={() => openEditor({ assignment: a })}
       role="button"
       tabIndex={0}
@@ -62,63 +64,42 @@ function AssignmentRowImpl({ assignment: a, course, now, showDate = true, showCl
         }
       }}
     >
-      <Checkbox checked={done || completing} onChange={onToggle} priority={a.priority} label={`Mark “${a.title}” complete`} />
+      <Checkbox checked={done || completing} onChange={onToggle} label={`Mark “${a.title}” complete`} />
       <div className="row-main">
-        <div className="row-title">
-          <span className="row-title-text">{a.title}</span>
-          {a.status === 'in_progress' && <span className="pill pill-progress">In progress</span>}
-        </div>
-        <div className="row-meta">
-          {showClass && <ClassTag course={course} size="sm" />}
-          <span className="row-meta-item">{TYPE_LABEL[a.type]}</span>
-          {a.estimatedMinutes ? (
-            <span className="row-meta-item">
-              <Clock size={12} /> {formatMinutes(a.estimatedMinutes)}
-            </span>
-          ) : null}
-          {a.location && (
-            <span className="row-meta-item">
-              <MapPin size={12} /> {a.location}
-            </span>
-          )}
-          {a.topics.length > 0 && (
-            <span className="row-meta-item" title="Study topics reviewed">
-              <ListChecks size={12} /> {a.topics.filter((t) => t.done).length}/{a.topics.length}
-            </span>
-          )}
-          {a.notes && (
-            <span className="row-meta-item" title={a.notes}>
-              <StickyNote size={12} />
-            </span>
-          )}
-          {extra}
-        </div>
+        <span className="row-title-text">{a.title}</span>
+        {(showClass || isTestLike) && (
+          <span className="row-meta">
+            {showClass && (
+              <span className="row-class">
+                <span className="class-dot" style={{ '--c': course?.color ?? NO_CLASS_COLOR } as React.CSSProperties} />
+                {course ? course.code || course.name : 'No class'}
+              </span>
+            )}
+            {isTestLike && <span className="row-kind">{a.type === 'quiz' ? 'Quiz' : 'Test'}</span>}
+          </span>
+        )}
       </div>
       <div className="row-side">
-        {showDate || timeOnly ? (
-          <span className={`due${overdue ? ' due-overdue' : urgent ? ' due-urgent' : ''}${done ? ' due-done' : ''}`}>
-            {overdue && !timeOnly ? <span className="due-prefix">Overdue · </span> : ''}
-            {dueLabel}
+        {a.priority === 'high' && !done && <Flag size={13} className="row-flag" fill="currentColor" aria-label="High priority" />}
+        {(showDate || timeOnly) && dueLabel && (
+          <span className={`due${overdue ? ' due-overdue' : ''}`}>
+            {overdue && !timeOnly ? (
+              <>
+                Overdue<span className="due-when"> · {dueLabel}</span>
+              </>
+            ) : (
+              dueLabel
+            )}
           </span>
-        ) : null}
-        <Menu
-          label="Priority"
-          items={PRIORITIES.map((p) => ({
-            label: `${p.label} priority`,
-            icon: <PriorityFlag priority={p.value} />,
-            checked: a.priority === p.value,
-            onSelect: () => setPriority(a.id, p.value),
-          }))}
-          trigger={(t) => (
-            <button type="button" className="icon-btn icon-btn-sm" aria-label={`Priority: ${a.priority}`} {...t}>
-              <PriorityFlag priority={a.priority} />
-            </button>
-          )}
-        />
+        )}
         <Menu
           label="Assignment actions"
           items={[
             { label: 'Edit', icon: <Pencil size={14} />, onSelect: () => openEditor({ assignment: a }) },
+            { label: '', divider: true, onSelect: () => {} },
+            { label: 'High priority', icon: <Flag size={14} />, checked: a.priority === 'high', onSelect: () => setPriority(a.id, 'high') },
+            { label: 'Medium priority', icon: <Flag size={14} />, checked: a.priority === 'medium', onSelect: () => setPriority(a.id, 'medium') },
+            { label: 'Low priority', icon: <Flag size={14} />, checked: a.priority === 'low', onSelect: () => setPriority(a.id, 'low') },
             { label: '', divider: true, onSelect: () => {} },
             { label: 'Not started', icon: <Circle size={14} />, checked: a.status === 'not_started', onSelect: () => setStatus(a.id, 'not_started') },
             { label: 'In progress', icon: <CircleDashed size={14} />, checked: a.status === 'in_progress', onSelect: () => setStatus(a.id, 'in_progress') },

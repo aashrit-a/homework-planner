@@ -76,7 +76,6 @@ export function Classes({ openNew = false }: { openNew?: boolean }) {
     <div className="page">
       <PageHeader
         title="My Classes"
-        subtitle={`${data.courses.length} class${data.courses.length === 1 ? '' : 'es'} this term`}
         actions={
           <button type="button" className="btn btn-primary" onClick={editor.openNew}>
             <Plus size={16} /> Add class
@@ -99,7 +98,7 @@ export function Classes({ openNew = false }: { openNew?: boolean }) {
         </div>
       ) : (
         <div className="class-grid">
-          {stats.map(({ c, total, done, open, overdue, next, minutes }) => (
+          {stats.map(({ c, open, overdue, next }) => (
             <article key={c.id} className="class-card" style={{ '--c': c.color } as React.CSSProperties}>
               <a href={href(`/classes/${c.id}`)} className="class-card-link" aria-label={`Open ${c.name}`} />
               <div className="class-card-head">
@@ -121,36 +120,16 @@ export function Classes({ openNew = false }: { openNew?: boolean }) {
                   )}
                 />
               </div>
-              {c.teacher && (
-                <div className="class-teacher">
-                  <User size={13} /> {c.teacher}
-                </div>
-              )}
-              <div className="class-stats">
-                <div>
-                  <span className="class-stat-num">{open}</span> open
-                </div>
-                <div>
-                  <span className="class-stat-num">{done}</span> done
-                </div>
-                {overdue > 0 && (
-                  <div className="text-danger">
-                    <span className="class-stat-num">{overdue}</span> overdue
-                  </div>
-                )}
-                {minutes > 0 && <div className="muted">{formatMinutes(minutes)} left</div>}
-              </div>
-              <div className="bar bar-sm">
-                <div className="bar-fill" style={{ width: `${total ? (done / total) * 100 : 0}%`, background: c.color }} />
-              </div>
+              {c.teacher && <div className="class-teacher">{c.teacher}</div>}
               <div className="class-next">
-                {next ? (
-                  <>
-                    <span className="muted">Next:</span> <span className="truncate">{next.title}</span>
-                    <span className="class-next-due">{formatDue(next.dueDate, next.dueTime)}</span>
-                  </>
-                ) : (
-                  <span className="muted">No upcoming deadlines</span>
+                <span>
+                  {open ? `${open} open` : 'All caught up'}
+                  {overdue > 0 && <span className="text-danger"> · {overdue} overdue</span>}
+                </span>
+                {next && (
+                  <span className="class-next-due truncate">
+                    Next: {next.title}, {formatDue(next.dueDate, next.dueTime).toLowerCase()}
+                  </span>
                 )}
               </div>
             </article>
@@ -227,7 +206,7 @@ export function ClassDetail({ id }: { id: string }) {
         </div>
       </header>
 
-      <QuickAdd defaultCourseId={course.id} placeholder={`Add to ${course.code || course.name} — e.g. “Problem set 9 fri 5pm”`} />
+      <QuickAdd defaultCourseId={course.id} placeholder={`Add to ${course.code || course.name} — e.g. “Problem set 9 due Friday at 5pm”`} />
 
       <div className="toolbar">
         <Segmented

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   BookOpen,
   CalendarDays,
@@ -18,8 +18,6 @@ import { href } from '../lib/router';
 import { useResolvedTheme } from '../lib/theme';
 import { useStore } from '../store/AppStore';
 import { useUI } from '../store/UIContext';
-import { isDone, isOverdue } from '../lib/planning';
-import { ClassDot, Kbd } from './ui';
 
 export const NAV = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -59,11 +57,6 @@ export function Sidebar({ path }: { path: string }) {
   const { data, actions } = useStore();
   const { openEditor } = useUI();
   const theme = useAppTheme();
-  const counts = useMemo(() => {
-    const now = new Date();
-    const active = data.assignments.filter((a) => !isDone(a));
-    return { active: active.length, overdue: active.filter((a) => isOverdue(a, now)).length };
-  }, [data.assignments]);
 
   return (
     <aside className="sidebar">
@@ -71,36 +64,16 @@ export function Sidebar({ path }: { path: string }) {
         <Logo />
       </div>
       <button type="button" className="btn btn-primary btn-block sidebar-add" onClick={() => openEditor()}>
-        <Plus size={16} /> Add assignment
-        <Kbd>N</Kbd>
+        <Plus size={16} /> Add
       </button>
       <nav className="nav" aria-label="Main">
         {NAV.map(({ path: p, label, icon: Icon }) => (
           <a key={p} href={href(p)} className={`nav-item${isActive(path, p) ? ' active' : ''}`} aria-current={isActive(path, p) ? 'page' : undefined}>
             <Icon size={17} strokeWidth={1.9} />
             <span>{label}</span>
-            {p === '/assignments' && counts.active > 0 && (
-              <span className={`nav-count${counts.overdue ? ' nav-count-alert' : ''}`} title={counts.overdue ? `${counts.overdue} overdue` : undefined}>
-                {counts.active}
-              </span>
-            )}
           </a>
         ))}
       </nav>
-
-      {data.courses.length > 0 && (
-        <div className="sidebar-section">
-          <div className="sidebar-section-title">Classes</div>
-          <div className="sidebar-classes">
-            {data.courses.map((c) => (
-              <a key={c.id} href={href(`/classes/${c.id}`)} className={`nav-item nav-class${path === `/classes/${c.id}` ? ' active' : ''}`}>
-                <ClassDot color={c.color} />
-                <span className="truncate">{c.code || c.name}</span>
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
 
       <div className="sidebar-footer">
         <div className="sidebar-user">

@@ -410,7 +410,6 @@ input[type='time'].input {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-xs);
   min-width: 0;
 }
 .card-header {
@@ -422,7 +421,7 @@ input[type='time'].input {
   min-height: 52px;
 }
 .card-title {
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -451,8 +450,8 @@ input[type='time'].input {
   flex-wrap: wrap;
 }
 .page-title {
-  font-size: 24px;
-  font-weight: 650;
+  font-size: 22px;
+  font-weight: 600;
   letter-spacing: -0.022em;
   line-height: 1.25;
 }
@@ -841,14 +840,8 @@ input[type='time'].input {
 .check-sm {
   --size: 15px;
 }
-.check-high {
-  --ring: var(--p-high);
-}
-.check-medium {
-  --ring: var(--p-medium);
-}
-.check-low {
-  --ring: var(--p-low);
+.check {
+  --ring: color-mix(in srgb, var(--text-3) 70%, transparent);
 }
 .check:hover {
   background: color-mix(in srgb, var(--ring) 12%, transparent);
@@ -913,23 +906,20 @@ input[type='time'].input {
 }
 
 /* ───────────── Assignment row ───────────── */
+.list {
+  display: flex;
+  flex-direction: column;
+}
 .row {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 9px 12px 9px 16px;
-  border-top: 1px solid var(--border);
+  padding: 9px 8px;
+  border-radius: var(--radius);
   cursor: pointer;
   transition: background-color 0.1s, opacity 0.35s var(--ease);
   position: relative;
-}
-.group > .row:first-of-type,
-.list-card > .row:first-child,
-.card-body-flush > .row:first-child {
-  border-top-color: transparent;
-}
-.group-label + .row {
-  border-top-color: transparent;
+  min-width: 0;
 }
 .row:hover {
   background: var(--surface-hover);
@@ -942,15 +932,9 @@ input[type='time'].input {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 1px;
-}
-.row-title {
-  display: flex;
-  align-items: center;
-  min-width: 0;
 }
 .row-title-text {
-  font-weight: 500;
+  font-weight: 450;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -960,43 +944,44 @@ input[type='time'].input {
 .row-meta {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   font-size: 12px;
   color: var(--text-3);
   min-width: 0;
-  flex-wrap: wrap;
-  row-gap: 2px;
 }
-.row-meta-item {
+.row-class {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.row-class .class-dot {
+  width: 6px;
+  height: 6px;
+}
+.row-kind::before {
+  content: '·';
+  margin-right: 8px;
 }
 .row-side {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 6px;
   flex-shrink: 0;
+}
+.row-flag {
+  color: var(--danger);
 }
 .due {
   font-size: 12.5px;
-  color: var(--text-2);
+  color: var(--text-3);
   white-space: nowrap;
-  margin-right: 6px;
   font-variant-numeric: tabular-nums;
-}
-.due-urgent {
-  color: var(--warning);
-  font-weight: 550;
 }
 .due-overdue {
   color: var(--danger);
-  font-weight: 550;
-}
-.due-done {
-  color: var(--text-3);
-  font-weight: 400;
 }
 .row-more {
   opacity: 0;
@@ -1009,7 +994,7 @@ input[type='time'].input {
 }
 @media (hover: none) {
   .row-more {
-    opacity: 1;
+    display: none;
   }
 }
 .row-done .row-title-text {
@@ -1041,40 +1026,86 @@ input[type='time'].input {
   opacity: 0.55;
 }
 
-/* Groups */
+/* Groups inside a list */
 .group + .group {
-  border-top: 1px solid var(--border);
+  margin-top: 10px;
 }
 .group-label {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 10px 16px 6px;
+  padding: 8px 8px 4px;
   font-size: 12px;
-  font-weight: 600;
-  color: var(--text-2);
+  font-weight: 500;
+  color: var(--text-3);
   width: 100%;
   text-align: left;
 }
 .group-label-danger {
   color: var(--danger);
 }
-.group-label-warn {
-  color: var(--warning);
-}
-.group-sub {
-  color: var(--text-3);
-  font-weight: 450;
-}
 .group-count {
-  color: var(--text-3);
-  font-weight: 500;
+  font-weight: 400;
 }
 .group-toggle:hover {
   color: var(--text);
 }
 .group-toggle svg {
   transition: transform 0.15s;
+}
+
+/* Sections: a heading and content, no box */
+.section {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 8px 2px;
+}
+.section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.section-action a,
+.section-action button {
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+.section-action a:hover,
+.section-action button:hover {
+  color: var(--text);
+}
+.section-empty {
+  padding: 6px 8px;
+  color: var(--text-3);
+  font-size: 13.5px;
+}
+.more-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-self: start;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-3);
+  padding: 2px 0;
+}
+.more-toggle:hover {
+  color: var(--text);
+}
+.more-toggle svg {
+  transition: transform 0.15s;
+}
+.more-toggle svg.flip {
+  transform: rotate(180deg);
 }
 
 /* ───────────── Quick add ───────────── */
@@ -1090,7 +1121,6 @@ input[type='time'].input {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-xs);
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 .quickadd-bar:hover {
@@ -1271,13 +1301,11 @@ input[type='time'].input {
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
   }
-  .row .pill,
-  .due-prefix {
-    display: none;
-  }
   .row-side .due {
     font-size: 12px;
-    margin-right: 0;
+  }
+  .due-when {
+    display: none;
   }
 }
 
@@ -1287,4 +1315,12 @@ input[type='time'].input {
   font-size: 11.5px;
   line-height: 1.45;
   white-space: pre;
+}
+
+.qa-details {
+  color: var(--text-3);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

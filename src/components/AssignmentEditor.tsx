@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Trash2 } from 'lucide-react';
+import { ChevronDown, Trash2 } from 'lucide-react';
 import type { AssignmentInput, AssignmentType, Priority, Status, StudyTopic } from '../types';
 import { TopicChecklist } from './TopicChecklist';
 import { isTestType } from '../lib/tests';
 import { Modal } from './Modal';
-import { PriorityFlag, Segmented, Kbd } from './ui';
+import { PriorityFlag, Segmented } from './ui';
 import { useStore } from '../store/AppStore';
 import { useUI } from '../store/UIContext';
 import { useAssignmentActions } from '../lib/hooks';
@@ -57,6 +57,7 @@ export function AssignmentEditor() {
   const [newClassName, setNewClassName] = useState('');
   const [addedCount, setAddedCount] = useState(0);
   const [error, setError] = useState('');
+  const [showMore, setShowMore] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -64,6 +65,8 @@ export function AssignmentEditor() {
     setForm(initialState(editor.assignment ?? editor.defaults, lastCourse.current));
     setNewClassName('');
     setAddedCount(0);
+    const a = editor.assignment;
+    setShowMore(!!a && (!!a.notes || !!a.estimatedMinutes || a.status !== 'not_started'));
     setError('');
   }, [editor]);
 
@@ -185,16 +188,7 @@ export function AssignmentEditor() {
             </button>
           ) : (
             <span className="footer-hint">
-              {addedCount > 0 ? (
-                <span className="added-count">{addedCount} added</span>
-              ) : (
-                <>
-                  <Kbd>⌘</Kbd>
-                  <Kbd>↵</Kbd> save · <Kbd>⇧</Kbd>
-                  <Kbd>⌘</Kbd>
-                  <Kbd>↵</Kbd> save & add another
-                </>
-              )}
+              {addedCount > 0 && <span className="added-count">{addedCount} added</span>}
             </span>
           )}
           <div className="footer-actions">
@@ -315,32 +309,6 @@ export function AssignmentEditor() {
               )}
             </div>
           </label>
-          <label className="field">
-            <span className="field-label">{isTestForm ? 'Study time needed' : 'Estimated time'}</span>
-            <div className="estimate-row">
-              <select className="input" value={form.estimate} onChange={(e) => set('estimate', e.target.value)}>
-                <option value="">Not set</option>
-                {estOptions.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-                <option value="custom">Custom…</option>
-              </select>
-              {form.estimate === 'custom' && (
-                <input
-                  type="number"
-                  min={5}
-                  step={5}
-                  className="input input-narrow"
-                  placeholder="min"
-                  aria-label="Custom estimate in minutes"
-                  value={form.customEstimate}
-                  onChange={(e) => set('customEstimate', e.target.value)}
-                />
-              )}
-            </div>
-          </label>
 
           <div className="field">
             <span className="field-label">Priority</span>
@@ -356,15 +324,6 @@ export function AssignmentEditor() {
                   </span>
                 ),
               }))}
-            />
-          </div>
-          <div className="field">
-            <span className="field-label">Status</span>
-            <Segmented
-              ariaLabel="Status"
-              value={form.status}
-              onChange={(v) => set('status', v)}
-              options={STATUSES.map((s) => ({ value: s.value, label: s.value === 'not_started' ? 'To do' : s.value === 'in_progress' ? 'Doing' : 'Done', title: s.label }))}
             />
           </div>
 
@@ -392,6 +351,47 @@ export function AssignmentEditor() {
             </>
           )}
 
+
+          <button type="button" className="more-toggle field-span" onClick={() => setShowMore((v) => !v)} aria-expanded={showMore}>
+            <ChevronDown size={14} className={showMore ? 'flip' : ''} /> {showMore ? 'Fewer details' : 'More details'}
+          </button>
+          {showMore && (
+            <>
+          <label className="field">
+            <span className="field-label">{isTestForm ? 'Study time needed' : 'Estimated time'}</span>
+            <div className="estimate-row">
+              <select className="input" value={form.estimate} onChange={(e) => set('estimate', e.target.value)}>
+                <option value="">Not set</option>
+                {estOptions.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+                <option value="custom">Custom…</option>
+              </select>
+              {form.estimate === 'custom' && (
+                <input
+                  type="number"
+                  min={5}
+                  step={5}
+                  className="input input-narrow"
+                  placeholder="min"
+                  aria-label="Custom estimate in minutes"
+                  value={form.customEstimate}
+                  onChange={(e) => set('customEstimate', e.target.value)}
+                />
+              )}
+            </div>
+          </label>
+          <div className="field">
+            <span className="field-label">Status</span>
+            <Segmented
+              ariaLabel="Status"
+              value={form.status}
+              onChange={(v) => set('status', v)}
+              options={STATUSES.map((s) => ({ value: s.value, label: s.value === 'not_started' ? 'To do' : s.value === 'in_progress' ? 'Doing' : 'Done', title: s.label }))}
+            />
+          </div>
           <label className="field field-span">
             <span className="field-label">Notes</span>
             <textarea
@@ -402,6 +402,8 @@ export function AssignmentEditor() {
               onChange={(e) => set('notes', e.target.value)}
             />
           </label>
+            </>
+          )}
         </div>
         <button type="submit" hidden />
       </form>

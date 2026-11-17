@@ -30,19 +30,26 @@ The build is fully static and uses hash routing, so `dist/` can be hosted on Net
 
 The planner starts empty. Older versions created a demo semester on first launch; the first time an existing browser loads this version, those demo classes and assignments are removed once (anything you added yourself is kept).
 
-### Quick-add syntax
+### Quick add
 
-`Essay draft #engl fri 5pm !high ~2h`
+Type the way you'd say it:
 
-| Token | Meaning |
+- `Essay draft due Friday at 5pm, high priority`
+- `math homework due thursday, takes 2 hours`
+- `"Lab report" for organic chemistry next tuesday`
+- `biology midterm in 2 weeks at 9am`
+
+What it understands:
+
+| | Examples |
 | --- | --- |
-| `#engl` | class (matches code or name, prefix is fine) |
-| `today`, `tomorrow`, `fri`, `next mon`, `11/24` | due date (defaults to today) |
-| `5pm`, `17:30`, `at 9am` | due time |
-| `!high` / `!h`, `!med`, `!low` | priority |
-| `~90m`, `~2h` | time estimate |
+| Date | `today`, `tonight`, `tomorrow`, `friday`, `this friday`, `next friday` (the Friday of next week), `in 3 days`, `in 2 weeks`, `next week`, `end of the week`, `dec 3`, `december 3rd`, `11/24`, `the 25th` |
+| Time | `at 5pm`, `11:50 pm`, `17:30`, `at 5` (afternoon), `noon`, `midnight`, `morning`, `evening` |
+| Priority | `high priority`, `low priority`, `priority: high`, `urgent`, `important` |
+| Effort | `takes 2 hours`, `about 45 minutes`, `half an hour` |
+| Class | class names and codes anywhere in the sentence (`math homework`, `for linear algebra`, `chem lab`) |
 
-The type is inferred from words like *quiz*, *exam*, *essay*, *reading*, *project*.
+Common misspellings such as "tomrorow" or "wendesday" are corrected. Put the title in quotes to keep it exactly as typed. With no date, it's due today; a time that has already passed today means tomorrow. The type (test, quiz, essay, reading, project) comes from words in the title. The older shorthand (`#class`, `!high`, `~2h`) still works.
 
 ### Keyboard
 

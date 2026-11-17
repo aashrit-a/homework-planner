@@ -195,7 +195,7 @@ export function Settings() {
           <li><span>Save in assignment form</span><span><Kbd>⌘/Ctrl</Kbd> <Kbd>Enter</Kbd></span></li>
           <li><span>Save & add another</span><span><Kbd>⇧</Kbd> <Kbd>⌘/Ctrl</Kbd> <Kbd>Enter</Kbd></span></li>
           <li><span>Go to Dashboard / Assignments / Tests / Week / Calendar</span><span><Kbd>G</Kbd> then <Kbd>D</Kbd> <Kbd>A</Kbd> <Kbd>T</Kbd> <Kbd>W</Kbd> <Kbd>C</Kbd></span></li>
-          <li><span>Quick add syntax</span><code className="code">Essay draft #engl fri 5pm !high ~2h</code></li>
+          <li><span>Quick add example</span><code className="code">Essay draft due Friday at 5pm, high priority</code></li>
         </ul>
       </section>
       <Modal

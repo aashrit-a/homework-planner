@@ -1,86 +1,75 @@
 import { useMemo } from 'react';
-import type { Assignment } from '../types';
-import { AlertTriangle, BookOpen, CalendarClock, Check, CheckCircle2, ChevronRight, Coffee, GraduationCap, ListTodo, MapPin, Plus, Sun, UserRound } from 'lucide-react';
-import { countdown, isTest, prepProgress, upcomingTests } from '../lib/tests';
-import { NO_CLASS_COLOR } from '../lib/constants';
-import { useStore, useCourses } from '../store/AppStore';
+import { BookOpen, Check, GraduationCap, ListTodo, UserRound } from 'lucide-react';
+import { useCourses, useStore } from '../store/AppStore';
 import { useUI } from '../store/UIContext';
 import { useNow } from '../lib/hooks';
-import { addDays, diffDays, formatLongDate, formatMinutes, fromKey, greeting, relativeDay, startOfWeek, toKey, weekDays, weekdayShort } from '../lib/date';
-import { compareByDue, isDone, isOverdue, sumMinutes, weekRangeKeys } from '../lib/planning';
+import { addDays, formatLongDate, greeting, toKey } from '../lib/date';
+import { compareByDue, isDone, isOverdue, weekRangeKeys } from '../lib/planning';
+import { countdown, isTest, upcomingTests } from '../lib/tests';
 import { href, navigate } from '../lib/router';
+import { NO_CLASS_COLOR } from '../lib/constants';
 import { AssignmentRow } from '../components/AssignmentRow';
 import { QuickAdd } from '../components/QuickAdd';
-import { Card, EmptyState, ProgressRing } from '../components/ui';
+import { Section } from '../components/ui';
 
-const UPCOMING_LIMIT = 8;
+const COMING_UP_LIMIT = 5;
 
-function plural(n: number, word: string) {
-  return `${n} ${word}${n === 1 ? '' : 's'}`;
-}
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 export function Dashboard() {
   const { data } = useStore();
   const { getCourse } = useCourses();
-  const { openEditor } = useUI();
   const now = useNow();
   const today = toKey(now);
 
   const view = useMemo(() => {
-    const all = data.assignments;
-    const active = all.filter((a) => !isDone(a));
-    const [weekStart, weekEnd] = weekRangeKeys(now);
-    const overdue = active.filter((a) => isOverdue(a, now)).sort(compareByDue);
-    const dueToday = all.filter((a) => a.dueDate === today).sort((a, b) => Number(isDone(a)) - Number(isDone(b)) || compareByDue(a, b));
-    const dueTodayOpen = dueToday.filter((a) => !isDone(a) && !isOverdue(a, now));
-    const weekAll = all.filter((a) => a.dueDate >= weekStart && a.dueDate <= weekEnd);
-    const weekOpen = weekAll.filter((a) => !isDone(a));
-    const weekDone = weekAll.filter(isDone);
-    const upcomingEnd = toKey(addDays(now, 7));
-    const upcoming = active.filter((a) => a.dueDate > today && a.dueDate <= upcomingEnd).sort(compareByDue);
-    const completedTotal = all.filter(isDone).length;
-    const days = weekDays(startOfWeek(now)).map((d) => {
-      const key = toKey(d);
-      const list = all.filter((a) => a.dueDate === key);
-      return { key, d, total: list.length, done: list.filter(isDone).length, minutes: sumMinutes(list.filter((a) => !isDone(a))) };
-    });
-    return { overdue, dueToday, dueTodayOpen, weekAll, weekOpen, weekDone, upcoming, completedTotal, days };
+    const open = data.assignments.filter((a) => !isDone(a));
+    const overdue = open.filter((a) => isOverdue(a, now)).sort(compareByDue);
+    const dueToday = data.assignments
+      .filter((a) => a.dueDate === today && !overdue.includes(a))
+      .sort((a, b) => Number(isDone(a)) - Number(isDone(b)) || compareByDue(a, b));
+    const horizon = toKey(addDays(now, 7));
+    const comingUp = open.filter((a) => a.dueDate > today && a.dueDate <= horizon && !isTest(a)).sort(compareByDue);
+    const tests = upcomingTests(data.assignments, now).filter((a) => a.dueDate > today);
+    const [ws, we] = weekRangeKeys(now);
+    const week = data.assignments.filter((a) => a.dueDate >= ws && a.dueDate <= we);
+    return { overdue, dueToday, comingUp, tests, weekTotal: week.length, weekDone: week.filter(isDone).length };
   }, [data.assignments, now, today]);
 
   const name = data.settings.userName.trim();
   const isEmpty = data.assignments.length === 0 && data.courses.length === 0;
   const showGettingStarted = data.courses.length === 0 || data.assignments.length === 0;
-  const weekPct = view.weekAll.length ? view.weekDone.length / view.weekAll.length : 0;
-  const todayMinutes = sumMinutes(view.dueTodayOpen);
 
-  const summary = (() => {
-    const parts: string[] = [];
-    if (view.dueTodayOpen.length) parts.push(`${plural(view.dueTodayOpen.length, 'assignment')} due today${todayMinutes ? ` (about ${formatMinutes(todayMinutes)} of work)` : ''}`);
-    else parts.push('nothing left due today');
-    const restOfWeek = view.weekOpen.filter((a) => a.dueDate > today).length;
-    if (restOfWeek) parts.push(`${restOfWeek} more later this week`);
-    let s = `You have ${parts.join(' and ')}.`;
-    if (view.overdue.length) s += ` ${plural(view.overdue.length, 'item')} ${view.overdue.length === 1 ? 'is' : 'are'} overdue.`;
-    return s;
-  })();
-
-  const maxMinutes = Math.max(60, ...view.days.map((d) => d.minutes));
-  const busiest = view.days.reduce((b, d) => (d.minutes > b.minutes ? d : b), view.days[0]);
+  const todayOpen = view.dueToday.filter((a) => !isDone(a)).length;
+  const summary = isEmpty
+    ? 'Your planner is empty. Add a few things below to get going.'
+    : [
+        todayOpen ? `${plural(todayOpen, 'thing')} due today` : 'Nothing left due today',
+        view.overdue.length ? `${view.overdue.length} overdue` : '',
+        view.tests[0] ? `next test ${countdown(view.tests[0], now).label.toLowerCase()}` : '',
+      ]
+        .filter(Boolean)
+        .join(' · ');
 
   return (
     <div className="page page-dashboard">
       <header className="welcome">
-        <div>
-          <p className="welcome-date">{formatLongDate(now)}</p>
-          <h1 className="welcome-title">
-            {greeting(now)}
-            {name ? `, ${name}` : ''}
-          </h1>
-          <p className="welcome-summary">{summary}</p>
-        </div>
-        <button type="button" className="btn btn-primary hide-mobile" onClick={() => openEditor()}>
-          <Plus size={16} /> Add assignment
-        </button>
+        <p className="welcome-date">{formatLongDate(now)}</p>
+        <h1 className="welcome-title">
+          {greeting(now)}
+          {name ? `, ${name}` : ''}
+        </h1>
+        <p className="welcome-summary">{summary}</p>
+        {view.weekTotal > 0 && (
+          <div className="week-progress" title="Assignments due this week">
+            <div className="week-progress-bar">
+              <div style={{ width: `${(view.weekDone / view.weekTotal) * 100}%` }} />
+            </div>
+            <span>
+              {view.weekDone} of {view.weekTotal} done this week
+            </span>
+          </div>
+        )}
       </header>
 
       <QuickAdd />
@@ -88,256 +77,55 @@ export function Dashboard() {
       {showGettingStarted && <GettingStarted />}
 
       {!isEmpty && (
-      <>
-      <div className="stats">
-        <StatCard label="Due today" value={view.dueTodayOpen.length} hint={todayMinutes ? `~${formatMinutes(todayMinutes)} of work` : 'All clear'} icon={<Sun size={16} />} onClick={() => navigate('/assignments?view=today')} />
-        <StatCard label="Due this week" value={view.weekOpen.length} hint={`${view.weekAll.length} total this week`} icon={<CalendarClock size={16} />} onClick={() => navigate('/planner')} />
-        <StatCard label="Completed" value={view.completedTotal} hint={`${view.weekDone.length} this week`} icon={<CheckCircle2 size={16} />} tone="success" onClick={() => navigate('/assignments?view=completed')} />
-        <StatCard label="Overdue" value={view.overdue.length} hint={view.overdue.length ? 'Needs attention' : 'You’re caught up'} icon={<AlertTriangle size={16} />} tone={view.overdue.length ? 'danger' : undefined} onClick={() => navigate('/assignments?view=overdue')} />
-      </div>
-
-      <div className="dash-grid">
-        <div className="dash-main">
-          <Card
-            title={
-              <>
-                Today <span className="card-count">{view.dueToday.length + view.overdue.length}</span>
-              </>
-            }
-            action={
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => openEditor({ defaults: { dueDate: today } })}>
-                <Plus size={14} /> Add for today
-              </button>
-            }
-            padded={false}
-          >
-            {view.overdue.length > 0 && (
-              <div className="group">
-                <div className="group-label group-label-danger">
-                  <AlertTriangle size={13} /> Overdue
-                </div>
+        <>
+          <Section title="Today">
+            {view.overdue.length + view.dueToday.length === 0 ? (
+              <p className="section-empty">Nothing due today.</p>
+            ) : (
+              <div className="list">
                 {view.overdue.map((a) => (
+                  <AssignmentRow key={a.id} assignment={a} course={getCourse(a.courseId)} now={now} />
+                ))}
+                {view.dueToday.map((a) => (
+                  <AssignmentRow key={a.id} assignment={a} course={getCourse(a.courseId)} now={now} showDate={false} timeOnly />
+                ))}
+              </div>
+            )}
+          </Section>
+
+          <Section title="Coming up" action={view.comingUp.length > COMING_UP_LIMIT ? <a href={href('/assignments')}>See all {view.comingUp.length}</a> : null}>
+            {view.comingUp.length === 0 ? (
+              <p className="section-empty">Nothing else due in the next 7 days.</p>
+            ) : (
+              <div className="list">
+                {view.comingUp.slice(0, COMING_UP_LIMIT).map((a) => (
                   <AssignmentRow key={a.id} assignment={a} course={getCourse(a.courseId)} now={now} />
                 ))}
               </div>
             )}
-            {view.dueToday.filter((a) => !view.overdue.includes(a)).length > 0 ? (
-              <div className="group">
-                {view.overdue.length > 0 && <div className="group-label">Due today</div>}
-                {view.dueToday
-                  .filter((a) => !view.overdue.includes(a))
-                  .map((a) => (
-                    <AssignmentRow key={a.id} assignment={a} course={getCourse(a.courseId)} now={now} showDate={false} timeOnly />
-                  ))}
+          </Section>
+
+          {view.tests.length > 0 && (
+            <Section title="Tests" action={<a href={href('/tests')}>All tests</a>}>
+              <div className="list">
+                {view.tests.slice(0, 3).map((a) => {
+                  const c = getCourse(a.courseId);
+                  const cd = countdown(a, now);
+                  return (
+                    <button key={a.id} type="button" className="test-line" onClick={() => navigate('/tests')}>
+                      <span className="class-dot" style={{ '--c': c?.color ?? NO_CLASS_COLOR } as React.CSSProperties} />
+                      <span className="test-line-title">{a.title}</span>
+                      <span className="test-line-class">{c ? c.code || c.name : ''}</span>
+                      <span className={`test-line-when${cd.tone === 'danger' ? ' soon' : ''}`}>{cd.label}</span>
+                    </button>
+                  );
+                })}
               </div>
-            ) : (
-              view.overdue.length === 0 && (
-                <EmptyState
-                  compact
-                  icon={<Coffee size={20} />}
-                  title="Nothing due today"
-                  description={view.upcoming[0] ? `Next up: “${view.upcoming[0].title}” ${relativeDay(view.upcoming[0].dueDate, today).toLowerCase()}.` : 'Enjoy the breathing room.'}
-                />
-              )
-            )}
-          </Card>
-
-          <Card
-            title="Upcoming deadlines"
-            action={
-              <a className="link-btn" href={href('/assignments')}>
-                View all <ChevronRight size={14} />
-              </a>
-            }
-            padded={false}
-          >
-            {view.upcoming.length === 0 ? (
-              <EmptyState compact title="No deadlines in the next 7 days" description="Add assignments as they’re announced to keep this list useful." />
-            ) : (
-              <>
-                <UpcomingList list={view.upcoming.slice(0, UPCOMING_LIMIT)} today={today} now={now} getCourse={getCourse} />
-                {view.upcoming.length > UPCOMING_LIMIT && (
-                  <div className="show-more">
-                    <a className="link-btn" href={href('/planner')}>
-                      {view.upcoming.length - UPCOMING_LIMIT} more this week in the planner <ChevronRight size={14} />
-                    </a>
-                  </div>
-                )}
-              </>
-            )}
-          </Card>
-        </div>
-
-        <aside className="dash-side">
-          <UpcomingTestsCard now={now} />
-          <Card title="This week">
-            <div className="progress-head">
-              <ProgressRing value={weekPct} size={76} stroke={7}>
-                <span className="ring-pct">{Math.round(weekPct * 100)}%</span>
-              </ProgressRing>
-              <div>
-                <div className="progress-big">
-                  {view.weekDone.length}
-                  <span className="progress-of"> / {view.weekAll.length}</span>
-                </div>
-                <div className="muted small">assignments completed</div>
-                <div className="progress-msg">{progressMessage(view.weekDone.length, view.weekAll.length)}</div>
-              </div>
-            </div>
-            <div className="bar">
-              <div className="bar-fill" style={{ width: `${weekPct * 100}%` }} />
-            </div>
-            <div className="week-mini" role="list" aria-label="Workload by day">
-              {view.days.map((d) => (
-                <a
-                  key={d.key}
-                  href={href(`/planner?day=${d.key}`)}
-                  role="listitem"
-                  className={`week-mini-day${d.key === today ? ' today' : ''}`}
-                  title={`${weekdayShort(d.d)}: ${d.total} due, ${formatMinutes(d.minutes)} remaining`}
-                >
-                  <div className="week-mini-bar">
-                    <div
-                      className={`week-mini-fill${d === busiest && d.minutes > 0 ? ' busiest' : ''}`}
-                      style={{ height: `${Math.max(d.total ? 8 : 0, (d.minutes / maxMinutes) * 100)}%` }}
-                    />
-                  </div>
-                  <span className="week-mini-label">{weekdayShort(d.d).slice(0, 1)}</span>
-                  <span className="week-mini-count">{d.total || ''}</span>
-                </a>
-              ))}
-            </div>
-            {busiest && busiest.minutes > 0 && (
-              <p className="muted small week-mini-note">
-                Busiest day: <strong>{diffDays(today, busiest.key) === 0 ? 'today' : relativeDay(busiest.key, today)}</strong> · {formatMinutes(busiest.minutes)} remaining
-              </p>
-            )}
-          </Card>
-
-          <ClassesSnapshot />
-        </aside>
-      </div>
-      </>
+            </Section>
+          )}
+        </>
       )}
     </div>
-  );
-}
-
-function progressMessage(done: number, total: number): string {
-  if (total === 0) return 'A quiet week so far.';
-  const pct = done / total;
-  if (pct === 1) return 'Week complete. Nicely done.';
-  if (pct >= 0.75) return 'Almost there.';
-  if (pct >= 0.5) return 'Over halfway.';
-  if (pct > 0) return 'Good start — keep it steady.';
-  return 'One assignment at a time.';
-}
-
-function StatCard({
-  label,
-  value,
-  hint,
-  icon,
-  tone,
-  onClick,
-}: {
-  label: string;
-  value: number;
-  hint: string;
-  icon: React.ReactNode;
-  tone?: 'danger' | 'success';
-  onClick: () => void;
-}) {
-  return (
-    <button type="button" className={`stat${tone ? ` stat-${tone}` : ''}`} onClick={onClick}>
-      <div className="stat-top">
-        <span className="stat-label">{label}</span>
-        <span className="stat-icon">{icon}</span>
-      </div>
-      <div className="stat-value">{value}</div>
-      <div className="stat-hint">{hint}</div>
-    </button>
-  );
-}
-
-function UpcomingList({
-  list,
-  today,
-  now,
-  getCourse,
-}: {
-  list: Assignment[];
-  today: string;
-  now: Date;
-  getCourse: ReturnType<typeof useCourses>['getCourse'];
-}) {
-  const groups = new Map<string, Assignment[]>();
-  for (const a of list) groups.set(a.dueDate, [...(groups.get(a.dueDate) ?? []), a]);
-  return (
-    <>
-      {[...groups.entries()].map(([day, items]) => {
-        const days = diffDays(today, day);
-        return (
-          <div className="group" key={day}>
-            <div className={`group-label${days <= 2 ? ' group-label-warn' : ''}`}>
-              {relativeDay(day, today)}
-              <span className="group-sub">
-                {fromKey(day).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                {days <= 2 ? ' · soon' : ''}
-              </span>
-            </div>
-            {items.map((a) => (
-              <AssignmentRow key={a.id} assignment={a} course={getCourse(a.courseId)} now={now} showDate={false} timeOnly />
-            ))}
-          </div>
-        );
-      })}
-    </>
-  );
-}
-
-function ClassesSnapshot() {
-  const { data } = useStore();
-  const stats = useMemo(
-    () =>
-      data.courses.map((c) => {
-        const list = data.assignments.filter((a) => a.courseId === c.id);
-        const open = list.filter((a) => !isDone(a));
-        return { c, open: open.length, total: list.length, done: list.length - open.length };
-      }),
-    [data.courses, data.assignments],
-  );
-  if (!stats.length) {
-    return (
-      <Card title="Classes">
-        <EmptyState compact title="No classes yet" action={<a className="btn btn-secondary btn-sm" href={href('/classes')}>Add a class</a>} />
-      </Card>
-    );
-  }
-  return (
-    <Card
-      title="Classes"
-      action={
-        <a className="link-btn" href={href('/classes')}>
-          Manage <ChevronRight size={14} />
-        </a>
-      }
-    >
-      <ul className="class-snapshot">
-        {stats.map(({ c, open, total, done }) => (
-          <li key={c.id}>
-            <a href={href(`/classes/${c.id}`)} className="class-snapshot-row">
-              <span className="class-dot" style={{ '--c': c.color } as React.CSSProperties} />
-              <span className="truncate">{c.code || c.name}</span>
-              <span className="class-snapshot-bar">
-                <span style={{ width: `${total ? (done / total) * 100 : 0}%`, background: c.color }} />
-              </span>
-              <span className="muted small tabular">{open} open</span>
-            </a>
-          </li>
-        ))}
-      </ul>
-    </Card>
   );
 }
 
@@ -345,128 +133,21 @@ function GettingStarted() {
   const { data } = useStore();
   const { openEditor } = useUI();
   const steps = [
-    {
-      done: data.courses.length > 0,
-      icon: <BookOpen size={16} />,
-      title: 'Add your classes',
-      desc: 'Give each class a color so its work is easy to spot.',
-      action: () => navigate('/classes?new=1'),
-      label: 'Add a class',
-    },
-    {
-      done: data.assignments.some(isTest),
-      icon: <GraduationCap size={16} />,
-      title: 'Add upcoming tests',
-      desc: 'Get a countdown and a checklist of what to study.',
-      action: () => openEditor({ defaults: { type: 'test', priority: 'high' } }),
-      label: 'Add a test',
-    },
-    {
-      done: data.assignments.some((a) => !isTest(a)),
-      icon: <ListTodo size={16} />,
-      title: 'Add assignments',
-      desc: 'Homework, essays, readings and projects with due dates.',
-      action: () => openEditor(),
-      label: 'Add an assignment',
-    },
-    {
-      done: data.settings.userName.trim().length > 0,
-      icon: <UserRound size={16} />,
-      title: 'Add your name',
-      desc: 'Used for the greeting at the top of this page.',
-      action: () => navigate('/settings'),
-      label: 'Open settings',
-    },
+    { done: data.courses.length > 0, icon: <BookOpen size={15} />, title: 'Add your classes', action: () => navigate('/classes?new=1') },
+    { done: data.assignments.some(isTest), icon: <GraduationCap size={15} />, title: 'Add an upcoming test', action: () => openEditor({ defaults: { type: 'test', priority: 'high' } }) },
+    { done: data.assignments.some((a) => !isTest(a)), icon: <ListTodo size={15} />, title: 'Add an assignment', action: () => openEditor() },
+    { done: data.settings.userName.trim().length > 0, icon: <UserRound size={15} />, title: 'Add your name', action: () => navigate('/settings') },
   ];
-  const doneCount = steps.filter((s) => s.done).length;
   return (
-    <section className="card getting-started">
-      <div className="card-header">
-        <h2 className="card-title">Get started</h2>
-        <span className="muted small tabular">
-          {doneCount} of {steps.length} done
-        </span>
-      </div>
-      <ol className="gs-steps">
+    <Section title="Get started">
+      <div className="list">
         {steps.map((s) => (
-          <li key={s.title} className={`gs-step${s.done ? ' done' : ''}`}>
-            <span className="gs-icon">{s.done ? <Check size={16} strokeWidth={2.5} /> : s.icon}</span>
-            <div className="gs-text">
-              <div className="gs-title">{s.title}</div>
-              <div className="muted small">{s.desc}</div>
-            </div>
-            {!s.done && (
-              <button type="button" className="btn btn-secondary btn-sm" onClick={s.action}>
-                {s.label}
-              </button>
-            )}
-          </li>
-        ))}
-      </ol>
-    </section>
-  );
-}
-
-function UpcomingTestsCard({ now }: { now: Date }) {
-  const { data } = useStore();
-  const { getCourse } = useCourses();
-  const { openEditor } = useUI();
-  const tests = useMemo(() => upcomingTests(data.assignments, now), [data.assignments, now]);
-  const shown = tests.slice(0, 3);
-  return (
-    <Card
-      title={
-        <>
-          Upcoming tests {tests.length > 0 && <span className="card-count">{tests.length}</span>}
-        </>
-      }
-      action={
-        <a className="link-btn" href={href('/tests')}>
-          All tests <ChevronRight size={14} />
-        </a>
-      }
-    >
-      {shown.length === 0 ? (
-        <div className="dash-tests-empty">
-          <span className="muted small">No tests coming up.</span>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={() => openEditor({ defaults: { type: 'test', priority: 'high' } })}>
-            <Plus size={14} /> Add test
+          <button key={s.title} type="button" className={`gs-step${s.done ? ' done' : ''}`} onClick={s.action} disabled={s.done}>
+            <span className="gs-icon">{s.done ? <Check size={15} strokeWidth={2.5} /> : s.icon}</span>
+            <span className="gs-title">{s.title}</span>
           </button>
-        </div>
-      ) : (
-        <ul className="dash-tests">
-          {shown.map((a) => {
-            const cd = countdown(a, now);
-            const prep = prepProgress(a);
-            const c = getCourse(a.courseId);
-            return (
-              <li key={a.id}>
-                <button type="button" className="dash-test" style={{ '--c': c?.color ?? NO_CLASS_COLOR } as React.CSSProperties} onClick={() => navigate('/tests')}>
-                  <span className={`dash-test-count countdown-${cd.tone}`}>
-                    <strong>{cd.value === 'Today' ? 'Today' : cd.value}</strong>
-                    {cd.value !== 'Today' && <span>{cd.unit}</span>}
-                  </span>
-                  <span className="dash-test-info">
-                    <span className="dash-test-title">{a.title}</span>
-                    <span className="muted small dash-test-meta">
-                      <span className="class-dot" /> {c ? c.code || c.name : 'No class'}
-                      {a.location && (
-                        <>
-                          {' · '}
-                          <MapPin size={11} /> {a.location}
-                        </>
-                      )}
-                    </span>
-                  </span>
-                  <span className="muted small tabular dash-test-prep" title="Study topics reviewed">
-                    {prep.total ? `${Math.round(prep.pct * 100)}%` : ''}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </Card>
+        ))}
+      </div>
+    </Section>
   );
 }

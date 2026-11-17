@@ -4,7 +4,6 @@ import { useStore } from '../store/AppStore';
 import { useUI } from '../store/UIContext';
 import { parseQuickAdd } from '../lib/quickAdd';
 import { formatDue, formatMinutes } from '../lib/date';
-import { ClassTag, PriorityFlag } from './ui';
 import { TYPE_LABEL } from '../lib/constants';
 import type { AssignmentType, Priority } from '../types';
 
@@ -99,7 +98,7 @@ export function QuickAdd({ defaultDate, defaultCourseId, defaultType, defaultPri
               inputRef.current?.blur();
             }
           }}
-          placeholder={placeholder ?? 'Quick add — try “Lab report #psyc fri 5pm !high ~2h”'}
+          placeholder={placeholder ?? 'Add something — e.g. “Essay draft due Friday at 5pm, high priority”'}
           aria-label="Quick add assignment"
         />
         <button
@@ -115,18 +114,20 @@ export function QuickAdd({ defaultDate, defaultCourseId, defaultType, defaultPri
       </div>
       {showPreview && (
         <div className="quickadd-preview" aria-live="polite">
-          <span className="qa-title">{parsed.title || <em>Add a title…</em>}</span>
-          <ClassTag course={course} size="sm" />
-          <span className="qa-chip">{formatDue(parsed.dueDate, parsed.dueTime)}</span>
-          {parsed.priority && (
-            <span className="qa-chip">
-              <PriorityFlag priority={parsed.priority} withLabel />
-            </span>
-          )}
-          {parsed.type && <span className="qa-chip">{TYPE_LABEL[parsed.type]}</span>}
-          {parsed.estimatedMinutes && <span className="qa-chip">~{formatMinutes(parsed.estimatedMinutes)}</span>}
+          <span className="qa-title">{parsed.title || <em>Type a name…</em>}</span>
+          <span className="qa-details">
+            {[
+              course ? course.code || course.name : null,
+              formatDue(parsed.dueDate, parsed.dueTime),
+              parsed.priority === 'high' ? 'High priority' : parsed.priority === 'low' ? 'Low priority' : null,
+              parsed.type === 'test' || parsed.type === 'quiz' ? TYPE_LABEL[parsed.type] : null,
+              parsed.estimatedMinutes ? `~${formatMinutes(parsed.estimatedMinutes)}` : null,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </span>
           <span className="qa-hint">
-            <CornerDownLeft size={12} /> to add
+            <CornerDownLeft size={12} /> Enter to add
           </span>
         </div>
       )}

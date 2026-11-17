@@ -1,14 +1,13 @@
 import { useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, GripVertical, ListPlus, Sparkles, Target, X, Check, Clock } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, GripVertical, ListPlus, Sparkles, Target, X, Check } from 'lucide-react';
 import type { Assignment } from '../types';
 import { useCourses, useStore } from '../store/AppStore';
 import { useUI } from '../store/UIContext';
 import { useAssignmentActions, useNow } from '../lib/hooks';
 import { addDaysKey, formatDue, formatMinutes, fromKey, relativeDay, toKey, monthShort } from '../lib/date';
 import { isDone, isOverdue, rankForStudy, sumMinutes } from '../lib/planning';
-import { TYPE_LABEL } from '../lib/constants';
 import { Checkbox } from '../components/Checkbox';
-import { ClassTag, EmptyState, PageHeader, PriorityFlag, ProgressRing } from '../components/ui';
+import { ClassTag, EmptyState, PageHeader, ProgressRing } from '../components/ui';
 
 export function StudyPlanner() {
   const { data, actions } = useStore();
@@ -33,7 +32,6 @@ export function StudyPlanner() {
 
   const remainingMinutes = sumMinutes(ranked.map((r) => r.assignment));
   const overdueCount = ranked.filter((r) => isOverdue(r.assignment, now)).length;
-  const next3Days = ranked.filter((r) => r.assignment.dueDate <= addDaysKey(today, 3)).map((r) => r.assignment);
 
   const setPlan = (ids: string[]) => actions.setPlan(day, ids);
   const addToPlan = (id: string) => !planSet.has(id) && setPlan([...planIds, id]);
@@ -88,34 +86,21 @@ export function StudyPlanner() {
 
   return (
     <div className="page page-wide">
-      <PageHeader title="Study Planner" subtitle="Decide what to work on next, then build a plan for the day." />
-
-      <div className="study-stats">
-        <div className="mini-stat">
-          <span className="mini-stat-num">{ranked.length}</span>
-          <span className="muted small">assignments left</span>
-        </div>
-        <div className="mini-stat">
-          <span className="mini-stat-num">{formatMinutes(remainingMinutes) === '—' ? '0h' : formatMinutes(remainingMinutes)}</span>
-          <span className="muted small">estimated work</span>
-        </div>
-        <div className="mini-stat">
-          <span className="mini-stat-num">{formatMinutes(sumMinutes(next3Days)) === '—' ? '0h' : formatMinutes(sumMinutes(next3Days))}</span>
-          <span className="muted small">due in next 3 days</span>
-        </div>
-        <div className={`mini-stat${overdueCount ? ' mini-stat-danger' : ''}`}>
-          <span className="mini-stat-num">{overdueCount}</span>
-          <span className="muted small">overdue</span>
-        </div>
-      </div>
+      <PageHeader
+        title="Study Planner"
+        subtitle={
+          ranked.length
+            ? `${ranked.length} left · about ${formatMinutes(remainingMinutes) === '—' ? '0h' : formatMinutes(remainingMinutes)} of work${overdueCount ? ` · ${overdueCount} overdue` : ''}`
+            : 'Everything is done.'
+        }
+      />
 
       <div className="study-grid">
         <section className="card">
           <div className="card-header">
-            <h2 className="card-title">
-              <Sparkles size={15} className="text-accent" /> Suggested order
+            <h2 className="card-title" title="Ranked by deadline, priority and effort">
+              Work on next
             </h2>
-            <span className="muted small hide-mobile">Ranked by deadline, priority & effort</span>
           </div>
           {ranked.length === 0 ? (
             <EmptyState compact icon={<Target size={20} />} title="Nothing left to do" description="Every assignment is complete. Nice work." />
@@ -137,27 +122,21 @@ export function StudyPlanner() {
                   >
                     <span className="rank">{i + 1}</span>
                     <div className="ranked-main" onClick={() => openEditor({ assignment: a })} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && openEditor({ assignment: a })}>
-                      <div className="row-title">
-                        <span className="row-title-text">{a.title}</span>
-                      </div>
-                      <div className="row-meta">
-                        <ClassTag course={getCourse(a.courseId)} size="sm" />
+                      <span className="row-title-text">{a.title}</span>
+                      <span className="row-meta">
+                        <span className="row-class">{getCourse(a.courseId)?.code || getCourse(a.courseId)?.name || 'No class'}</span>
                         <span className={`reason reason-${tone}`}>{reason}</span>
-                        <span className="row-meta-item">
-                          <Clock size={12} /> {a.estimatedMinutes ? formatMinutes(a.estimatedMinutes) : 'no estimate'}
-                        </span>
-                        <span className="row-meta-item hide-mobile">{TYPE_LABEL[a.type]}</span>
-                      </div>
+                        {a.estimatedMinutes ? <span>{formatMinutes(a.estimatedMinutes)}</span> : null}
+                      </span>
                     </div>
-                    <PriorityFlag priority={a.priority} />
                     <button
                       type="button"
-                      className={`btn btn-sm ${inPlan ? 'btn-ghost' : 'btn-secondary'}`}
+                      className={`btn btn-sm btn-ghost${inPlan ? ' is-planned' : ''}`}
                       onClick={() => (inPlan ? removeFromPlan(a.id) : addToPlan(a.id))}
                       aria-label={inPlan ? `Remove “${a.title}” from plan` : `Add “${a.title}” to plan`}
                     >
                       {inPlan ? <Check size={14} /> : <ListPlus size={14} />}
-                      <span className="hide-mobile">{inPlan ? 'Planned' : 'Plan'}</span>
+                      <span className="hide-mobile">{inPlan ? 'Planned' : 'Add'}</span>
                     </button>
                   </li>
                 );

@@ -44,7 +44,7 @@ export function Tests() {
         }
       />
 
-      <QuickAdd defaultType="test" defaultPriority="high" placeholder="Add a test — e.g. “Midterm 2 #math fri 9:30am” or “Quiz 5 #psyc tomorrow”" />
+      <QuickAdd defaultType="test" defaultPriority="high" placeholder="Add a test — e.g. “Biology midterm next Friday at 9am”" />
 
       <div className="toolbar">
         <Segmented<Tab>

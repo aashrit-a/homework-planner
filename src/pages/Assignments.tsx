@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ClipboardList, Plus, Search, X, ChevronDown } from 'lucide-react';
+import { ClipboardList, Plus, Search, SlidersHorizontal, X, ChevronDown } from 'lucide-react';
 import type { Assignment, AssignmentType, Priority } from '../types';
 import { useCourses, useStore } from '../store/AppStore';
 import { useUI } from '../store/UIContext';
@@ -32,6 +32,7 @@ export function Assignments({ route }: { route: Route }) {
   const [priority, setPriority] = useState<Priority | ''>('');
   const [type, setType] = useState<AssignmentType | ''>('');
   const [sort, setSort] = useState<SortKey>('due');
+  const [showFilters, setShowFilters] = useState(false);
   const [view, setView] = useState<View>(
     initialView === 'today' || initialView === 'week' || initialView === 'overdue' ? initialView : '',
   );
@@ -95,20 +96,11 @@ export function Assignments({ route }: { route: Route }) {
     if (route.query.toString()) navigate('/assignments');
   };
 
-  const openCount = data.assignments.filter((a) => !isDone(a)).length;
-  const defaultsForAdd = courseFilter && courseFilter !== 'none' ? { courseId: courseFilter } : undefined;
+  const extraFilterCount = [courseFilter, priority, type].filter(Boolean).length + (sort !== 'due' ? 1 : 0);
 
   return (
     <div className="page">
-      <PageHeader
-        title="My Assignments"
-        subtitle={`${openCount} open · ${data.assignments.length - openCount} completed`}
-        actions={
-          <button type="button" className="btn btn-primary" onClick={() => openEditor({ defaults: defaultsForAdd })}>
-            <Plus size={16} /> Add assignment
-          </button>
-        }
-      />
+      <PageHeader title="Assignments" />
 
       <QuickAdd defaultCourseId={courseFilter && courseFilter !== 'none' ? courseFilter : undefined} />
 
@@ -141,12 +133,20 @@ export function Assignments({ route }: { route: Route }) {
           }}
           options={[
             { value: 'active', label: 'Open' },
-            { value: 'not_started', label: 'To do' },
-            { value: 'in_progress', label: 'Doing' },
             { value: 'completed', label: 'Done' },
             { value: 'all', label: 'All' },
           ]}
         />
+        <button
+          type="button"
+          className={`btn btn-ghost btn-sm filters-toggle${showFilters || extraFilterCount ? ' active' : ''}`}
+          onClick={() => setShowFilters((v) => !v)}
+          aria-expanded={showFilters}
+        >
+          <SlidersHorizontal size={14} /> Filters{extraFilterCount ? ` · ${extraFilterCount}` : ''}
+        </button>
+      </div>
+      {showFilters && (
         <div className="toolbar-selects">
           <FilterSelect label="Class" value={courseFilter} onChange={setCourseFilter}>
             <option value="">All classes</option>
@@ -180,7 +180,7 @@ export function Assignments({ route }: { route: Route }) {
             <option value="created">Sort: Recently added</option>
           </FilterSelect>
         </div>
-      </div>
+      )}
 
       {(view || activeFilterCount > 0) && (
         <div className="filter-summary">
