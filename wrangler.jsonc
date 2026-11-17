@@ -1,0 +1,9 @@
+// Cloudflare deployment: serve the static Vite build from dist/.
+// Hash-based routing means every page loads from index.html, so no server code is needed.
+{
+  "name": "homework-planner",
+  "compatibility_date": "2025-06-01",
+  "assets": {
+    "directory": "./dist"
+  }
+}
